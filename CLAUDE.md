@@ -304,6 +304,7 @@ Mapped to Wong et al. JAMA Network Open 2026:
 | **eTable 6** | Threshold analysis: optimal cutpoints by method | `07_threshold_analysis.py` |
 | **eTable 7** | DCA net benefit at selected threshold probabilities | `06_decision_curve.py` |
 | **eTable 8** | Fairness audit: stratified by gender | `09_fairness_audit.py` |
+| **eTable 9** | Literature benchmarking: MFS validation studies | `13_master_report.py` |
 | **Notebook 12** | Aggregate report — collects key results from all notebooks | `12_report.py` |
 | **Notebook 13** | Master report — full pipeline reproduction in one notebook | `13_master_report.py` |
 
@@ -661,3 +662,5 @@ Before implementing certain notebooks, these questions need answers from the dat
 - **Morse Fall Scale**: Morse JM, Morse RM, Tylko SJ. *Can J Aging*. 1989;8(4):366-377
 - **MFS meta-analysis**: Aranda-Gallardo M et al. *BMC Health Serv Res*. 2013;13:122
 - **Epic PMFRS Model Brief**: Epic Systems. Cognitive Computing Model Brief: Inpatient Risk of Falls. August 13, 2025
+- **MFS design bias**: Haines TP et al. *J Gerontol A Biol Sci Med Sci*. 2007;62(6):664-672 (PMID: 17595425)
+- **MFS prospective validation**: Ji Y et al. 2023 (PMID: 37305899); Shim J et al. 2022 (PMID: 36128798)

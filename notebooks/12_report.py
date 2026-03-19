@@ -56,7 +56,7 @@ def _(Path, json, mo):
         | Epic PMFRS | {epic_auroc} | {epic_ci} |
         | Morse Fall Scale | {morse_auroc} | {morse_ci} |
 
-        Paired DeLong test: **p {delong_p}**
+        Paired DeLong test: **p {'= ' if not str(delong_p).startswith('<') else ''}{delong_p}**
         """
     )
     return key_results, n_enc, n_falls
@@ -284,6 +284,24 @@ def _(etable4_sens_df, mo):
     return
 
 
+# ── eTable 9: Literature Benchmarking ────────────────────────────
+@app.cell
+def _(Path, mo, pl):
+    etable9_path = Path("outputs/tables/etable9_literature_benchmarking.csv")
+    mo.stop(not etable9_path.exists(), mo.md("*eTable 9 not found — run `13_master_report.py` first.*"))
+    etable9_df = pl.read_csv(etable9_path)
+    return (etable9_df,)
+
+
+@app.cell
+def _(etable9_df, mo):
+    mo.vstack([
+        mo.md("## eTable 9 — Literature Benchmarking: MFS Validation Studies"),
+        mo.ui.table(etable9_df),
+    ])
+    return
+
+
 # ── Interpretation ────────────────────────────────────────────────
 @app.cell
 def _(key_results, mo, n_enc, n_falls):
@@ -299,7 +317,12 @@ def _(key_results, mo, n_enc, n_falls):
         ### Discrimination
         The Epic PMFRS achieved an AUROC of {_epic_auroc} and the Morse Fall
         Scale an AUROC of {_morse_auroc} for predicting inpatient falls using
-        admission scores (paired DeLong p {_delong_p}).
+        admission scores (paired DeLong p {'= ' if not str(_delong_p).startswith('<') else ''}{_delong_p}).
+        These AUROCs are consistent with prospective cohort studies at comparable
+        prevalence (Ji 2023: 0.63; Shim 2022: 0.65; Lohse 2021: 0.64). Higher
+        published MFS AUROCs (0.76–0.86) arise from case-control designs or
+        max-score analyses that inflate accuracy (Haines 2007). See eTable 9 for
+        the full literature benchmarking comparison.
 
         ### Clinical Implications
         At {_prev_pct}% fall prevalence, both models generate substantial false positives.
@@ -314,8 +337,8 @@ def _(key_results, mo, n_enc, n_falls):
         The admission score analysis remains the primary, unbiased estimate.
 
         ### Fairness
-        Subgroup analyses (eTables 1-3) should be reviewed for clinically
-        meaningful disparities across age, race/ethnicity, and unit type.
+        Subgroup analyses (eTables 1-3, 8) should be reviewed for clinically
+        meaningful disparities across age, race/ethnicity, gender, and unit type.
         Subgroups with fewer than 20 falls are reported as unreliable per
         pre-specified criteria.
 
@@ -383,6 +406,7 @@ def _(Path, mo):
         "etable3_unit.csv",
         "etable4_sensitivity.csv",
         "etable8_gender.csv",
+        "etable9_literature_benchmarking.csv",
         "calibration_summary.csv",
         "dca_threshold_ranges.json",
         "efigure4_cohort_flow_counts.csv",

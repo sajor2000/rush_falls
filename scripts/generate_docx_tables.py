@@ -3,7 +3,7 @@
 
 Outputs:
     outputs/docx/manuscript_tables.docx  — Tables 1-3
-    outputs/docx/supplement_tables.docx  — eTables 1-8
+    outputs/docx/supplement_tables.docx  — eTables 1-9
 
 Usage: uv run scripts/generate_docx_tables.py
 """
@@ -392,6 +392,26 @@ SUPPLEMENT_TABLES = [
             "CI, confidence interval; PMFRS, Predictive Model Fall Risk Score.",
             "95% CIs from 2000 stratified bootstrap resamples (BCa method).",
             "Subgroups with fewer than 20 fall events are flagged as unreliable.",
+        ],
+    ),
+    TableDef(
+        csv_file="etable9_literature_benchmarking.csv",
+        label="eTable 9",
+        title="Published Morse Fall Scale Validation Studies: Benchmarking Comparison",
+        landscape=True,
+        footnotes=[
+            "Abbreviations: AUROC, area under the receiver operating characteristic curve; "
+            "MFS, Morse Fall Scale; PPV, positive predictive value; NPV, negative predictive value; "
+            "CI, confidence interval; NR, not reported.",
+            "Studies ordered by methodological comparability to the present study. "
+            "Higher published AUROCs (0.76\u20130.86) typically arise from case-control designs or "
+            "use of maximum encounter scores, which inflate discrimination estimates by "
+            "+0.22 Youden Index on average (Haines et al, J Gerontol A Biol Sci Med Sci, 2007; "
+            "PMID: 17595425).",
+            "Prospective cohort studies with \u22642% prevalence report MFS AUROC of 0.63\u20130.65, "
+            "consistent with the present study.",
+            "PMID = PubMed identifier. Epic model brief data from Epic Systems "
+            "Cognitive Computing Model Brief: Inpatient Risk of Falls (August 2025).",
         ],
     ),
 ]
