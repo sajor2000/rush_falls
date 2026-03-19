@@ -288,6 +288,13 @@ def _(
 
         fig_ef3.subplots_adjust(wspace=0.35, bottom=0.28)
 
+        fig_ef3.text(
+            0.5, -0.16,
+            "eFigure 3. Threshold method operating points on ROC curves:\n"
+            "Epic PMFRS vs Morse Fall Scale",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
+
     save_figure(fig_ef3, "efigure3_threshold_overlay")
     fig_ef3
     return (fig_ef3,)
@@ -521,6 +528,12 @@ def _(
             frameon=False,
         )
         fig_dist.subplots_adjust(wspace=0.35)
+
+        fig_dist.text(
+            0.5, -0.08,
+            "eFigure 5. Score distributions at admission with standard threshold annotations",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
 
     save_figure(fig_dist, "efigure5_score_distributions")
     fig_dist

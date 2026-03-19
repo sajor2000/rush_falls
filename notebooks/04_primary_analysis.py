@@ -725,11 +725,11 @@ def _(
             bbox_to_anchor=(0.5, -0.01),
         )
 
-        _fig.suptitle(
-            "Figure 1. Classification metrics across score thresholds: Epic PMFRS vs Morse Fall Scale",
-            fontsize=10,
-            fontweight="bold",
-            y=1.01,
+        _fig.text(
+            0.5, -0.06,
+            "Figure 1. Classification metrics across score thresholds:\n"
+            "Epic PMFRS vs Morse Fall Scale",
+            ha="center", va="top", fontsize=10, fontweight="bold",
         )
 
         save_figure(_fig, "figure1_discrimination")

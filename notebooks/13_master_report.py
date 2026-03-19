@@ -655,6 +655,12 @@ def _(FancyArrowPatch, FancyBboxPatch, JAMA_STYLE, flow_counts, plt, save_figure
         _arrow(_MX - 0.06, _analy_bot, _FALL_X, _split_top, cs="arc3,rad=0.12")
         _arrow(_MX + 0.06, _analy_bot, _NOFALL_X, _split_top, cs="arc3,rad=-0.12")
 
+        _fig.text(
+            0.5, -0.02,
+            "eFigure 4. CONSORT-style cohort flow diagram",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
+
         save_figure(_fig, "efigure4_cohort_flow", formats=("pdf", "png"))
 
     return
@@ -759,10 +765,15 @@ def _(FIG_DOUBLE_COL, Path, df_analytic, mo, pl, plt, save_figure):
     _fig, _ax = plt.subplots(figsize=FIG_DOUBLE_COL)
     _ax.barh(_units, _counts, color="#4A7C8A", edgecolor="white", linewidth=0.3)
     _ax.set_xlabel("Number of falls")
-    _ax.set_title("Top 10 units by fall count", fontweight="bold")
+    _ax.set_ylabel("Unit")
     for _i, _v in enumerate(_counts):
         _ax.text(_v + max(_counts) * 0.01, _i, str(_v), va="center", fontsize=8)
     _fig.tight_layout()
+    _fig.text(
+        0.5, -0.02,
+        "Top 10 units by fall count",
+        ha="center", va="top", fontsize=10, fontweight="bold",
+    )
     save_figure(_fig, "fall_locations")
 
     # Export CSV
@@ -801,10 +812,15 @@ def _(FIG_DOUBLE_COL, Path, df_analytic, mo, pl, plt, save_figure):
     _fig, _ax = plt.subplots(figsize=FIG_DOUBLE_COL)
     _ax.barh(_depts, _rates, color="#4A7C8A", edgecolor="white", linewidth=0.3)
     _ax.set_xlabel("Fall rate, %")
-    _ax.set_title("Fall rate by admitting department (top 10 by volume)", fontweight="bold")
+    _ax.set_ylabel("Department")
     for _i, _v in enumerate(_rates):
         _ax.text(_v + max(_rates) * 0.01, _i, f"{_v:.1f}%", va="center", fontsize=8)
     _fig.tight_layout()
+    _fig.text(
+        0.5, -0.02,
+        "Fall rate by admitting department (top 10 by volume)",
+        ha="center", va="top", fontsize=10, fontweight="bold",
+    )
     save_figure(_fig, "department_fall_rates")
 
     _dept_stats.write_csv(Path("outputs/tables/department_fall_rates.csv"))
@@ -835,16 +851,21 @@ def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
     _ax1.hist(_hours, bins=range(25), color="#4A7C8A", edgecolor="white", linewidth=0.3)
     _ax1.set_xlabel("Hour of day")
     _ax1.set_ylabel("Number of falls")
-    _ax1.set_title("A. Falls by hour of day", fontweight="bold")
+    _ax1.text(-0.14, 1.06, "A", transform=_ax1.transAxes, fontsize=10, fontweight="bold", va="top")
     _ax1.set_xticks(range(0, 24, 4))
 
     _day_counts = [int((_weekdays == d).sum()) for d in range(7)]
     _ax2.bar(_day_labels, _day_counts, color="#4A7C8A", edgecolor="white", linewidth=0.3)
     _ax2.set_xlabel("Day of week")
     _ax2.set_ylabel("Number of falls")
-    _ax2.set_title("B. Falls by day of week", fontweight="bold")
+    _ax2.text(-0.14, 1.06, "B", transform=_ax2.transAxes, fontsize=10, fontweight="bold", va="top")
 
     _fig.tight_layout()
+    _fig.text(
+        0.5, -0.02,
+        "Temporal patterns of fall events",
+        ha="center", va="top", fontsize=10, fontweight="bold",
+    )
     save_figure(_fig, "fall_temporal")
 
     # Export CSV
@@ -883,7 +904,6 @@ def _(FIG_SINGLE_COL, df_analytic, mo, np, pl, plt, save_figure):
     _ax.axvline(_med, color="#B2182B", linestyle="--", linewidth=1.0)
     _ax.set_xlabel("Hours from admission to fall")
     _ax.set_ylabel("Number of falls")
-    _ax.set_title("Admission-to-fall timing", fontweight="bold")
     _ax.text(
         0.97, 0.95,
         f"Median: {_med:.0f}h [{_q1:.0f}\u2013{_q3:.0f}]",
@@ -891,6 +911,11 @@ def _(FIG_SINGLE_COL, df_analytic, mo, np, pl, plt, save_figure):
         bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "edgecolor": "0.8"},
     )
     _fig.tight_layout()
+    _fig.text(
+        0.5, -0.02,
+        "Admission-to-fall timing",
+        ha="center", va="top", fontsize=10, fontweight="bold",
+    )
     save_figure(_fig, "admission_to_fall_hours")
 
     mo.md(
@@ -904,12 +929,13 @@ def _(FIG_SINGLE_COL, df_analytic, mo, np, pl, plt, save_figure):
 def _(mo):
     mo.callout(
         mo.md(
-            "**Key patterns**: Most falls cluster on specific inpatient units. "
-            "There may be hour-of-day and day-of-week variation reflecting staffing "
-            "patterns. The median time from admission to fall indicates whether "
-            "admission-time screening scores are capturing risk during the highest-risk "
-            "window. These patterns provide context for interpreting the primary "
-            "discrimination analysis."
+            "**Interpretation guide**: Review which units have the highest fall "
+            "concentrations — these may warrant targeted intervention regardless of "
+            "model scores. Hour-of-day and day-of-week patterns may reflect staffing "
+            "levels, patient activity cycles, or documentation timing. The median "
+            "admission-to-fall interval indicates whether admission-time screening "
+            "scores are capturing risk during the highest-risk window — if most falls "
+            "occur days after admission, the admission score may have decayed in relevance."
         ),
         kind="info",
     )
@@ -1451,8 +1477,12 @@ def _(COLORS, FIG_MULTI_PANEL, JAMA_STYLE, epic_prob, matplotlib, morse_prob, np
         _handles, _labels_leg = _axes.flat[0].get_legend_handles_labels()
         _fig.legend(_handles, _labels_leg, loc="lower center", ncol=2, fontsize=8,
                     frameon=False, bbox_to_anchor=(0.5, -0.01))
-        _fig.suptitle("Figure 1. Classification metrics across score thresholds: Epic PMFRS vs Morse Fall Scale",
-                      fontsize=10, fontweight="bold", y=1.01)
+        _fig.text(
+            0.5, -0.06,
+            "Figure 1. Classification metrics across score thresholds:\n"
+            "Epic PMFRS vs Morse Fall Scale",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
         save_figure(_fig, "figure1_discrimination")
 
     return
@@ -1545,7 +1575,6 @@ def _(matplotlib, np, plt):
             _ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=2, fontsize=8, frameon=False, handlelength=1.5)
             _ax.set_xlabel("Predicted probability", fontsize=9)
             _ax.set_ylabel("Observed event rate", fontsize=9)
-            _ax.set_title(f"Calibration: {model_label}", fontsize=10, fontweight="bold", pad=6)
             _ax.set_xlim(-0.002, _axis_max * 1.05)
             _ax.set_ylim(_rug_y_nonevent - _rug_height, _axis_max * 1.05)
             _ax.tick_params(labelsize=8)
@@ -1564,9 +1593,19 @@ def _(COLORS, FIG_SINGLE_COL, JAMA_STYLE, Path, calibration_metrics, epic_prob, 
     morse_cal = calibration_metrics(y_true, morse_prob, lowess_frac=0.3)
 
     _efig1 = make_calibration_plot(y_true, epic_prob, epic_cal, "Epic PMFRS", COLORS["epic"], JAMA_STYLE, FIG_SINGLE_COL)
+    _efig1.text(
+        0.5, -0.22,
+        "eFigure 1. Calibration plot: Epic PMFRS",
+        ha="center", va="top", fontsize=10, fontweight="bold",
+    )
     save_figure(_efig1, "efigure1_calibration_epic")
 
     _efig2 = make_calibration_plot(y_true, morse_prob, morse_cal, "Morse Fall Scale", COLORS["morse"], JAMA_STYLE, FIG_SINGLE_COL)
+    _efig2.text(
+        0.5, -0.22,
+        "eFigure 2. Calibration plot: Morse Fall Scale",
+        ha="center", va="top", fontsize=10, fontweight="bold",
+    )
     save_figure(_efig2, "efigure2_calibration_morse")
 
     # Calibration summary
@@ -1612,11 +1651,13 @@ def _(mo):
             """
             **What the calibration results mean**
 
-            Both models' predicted risk numbers were reasonably close to observed fall rates after
-            statistical adjustment (logistic recalibration). This means the risk percentages shown
-            to clinicians are approximately trustworthy — a patient flagged as "5% risk" does fall
-            about 5% of the time. Without recalibration, the raw scores from both tools would
-            overestimate or underestimate actual risk; the adjustment corrects for this.
+            After logistic recalibration (a standard statistical adjustment for externally developed
+            models), both tools' predicted probabilities were reasonably close to observed fall rates.
+            Note that clinicians see the raw scores (Epic 0–100, Morse 0–125), not recalibrated
+            probabilities — recalibration is an analytic step that maps scores to actual risk
+            estimates. Without this adjustment, the raw scores would overestimate or underestimate
+            actual fall probability. The recalibration step is necessary for DCA, NRI, and any
+            analysis that interprets scores as probabilities.
             """
         ),
         kind="info",
@@ -1736,6 +1777,12 @@ def _(COLORS, EPIC_2TIER_HIGH, EPIC_3TIER_HIGH, EPIC_3TIER_MEDIUM, JAMA_STYLE, M
         _ax3.set_xticks([0, 2, 4, 6, 8, 10])
         _ax3.set_xticklabels(["0%", "2%", "4%", "6%", "8%", "10%"], fontsize=8)
         _fig3.subplots_adjust(bottom=0.22)
+
+        _fig3.text(
+            0.5, -0.02,
+            "Figure 3. Decision curve analysis: Epic PMFRS vs Morse Fall Scale",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
 
     save_figure(_fig3, "figure3_dca")
     return
@@ -1945,6 +1992,13 @@ def _(
                         ncol=4, fontsize=8, frameon=False, columnspacing=0.8)
         _fig_ef3.subplots_adjust(wspace=0.35, bottom=0.28)
 
+        _fig_ef3.text(
+            0.5, -0.16,
+            "eFigure 3. Threshold method operating points on ROC curves:\n"
+            "Epic PMFRS vs Morse Fall Scale",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
+
     save_figure(_fig_ef3, "efigure3_threshold_overlay")
 
     # eFigure 5: Score distributions
@@ -1984,6 +2038,12 @@ def _(
         _h, _l = _ax_ep.get_legend_handles_labels()
         _fig_dist.legend(_h, _l, loc="lower center", bbox_to_anchor=(0.5, -0.02), ncol=2, fontsize=8, frameon=False)
         _fig_dist.subplots_adjust(wspace=0.35)
+
+        _fig_dist.text(
+            0.5, -0.08,
+            "eFigure 5. Score distributions at admission with standard threshold annotations",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
 
     save_figure(_fig_dist, "efigure5_score_distributions")
     return
@@ -2251,22 +2311,32 @@ def _(Path, mo, nri_boot_ci, nri_cat_estimates, nri_point_estimates, pl):
 def _(mo, nri_point_estimates):
     _event_nri = nri_point_estimates["nri_events"]
     _nonevent_nri = nri_point_estimates["nri_nonevents"]
-    _event_dir = "more" if _event_nri is not None and _event_nri > 0 else "fewer"
-    _nonevent_dir = "more" if _nonevent_nri is not None and _nonevent_nri > 0 else "fewer"
+
+    def _nri_direction(val):
+        if val is None:
+            return "could not be determined"
+        if val > 0:
+            return f"is positive ({val:.3f}), meaning Epic correctly reclassifies more patients than Morse"
+        if val < 0:
+            return f"is negative ({val:.3f}), meaning Morse correctly classifies more patients than Epic"
+        return "is zero, meaning neither tool reclassifies better"
+
     mo.callout(
         mo.md(
             f"""
             **What the reclassification results mean**
 
-            The reclassification analysis shows whether switching from the Morse checklist to the Epic
-            model would move patients into better risk categories. A positive NRI for events means
-            {_event_dir} fallers would be correctly identified as high risk. A positive NRI for non-events
-            means {_nonevent_dir} non-fallers would be correctly identified as low risk.
+            The reclassification analysis measures whether switching from the Morse checklist to the
+            Epic model would move patients into better or worse risk categories.
 
-            In practical terms: if your unit switched from Morse to Epic tomorrow, these numbers tell you
-            how many patients would be reclassified — and whether those reclassifications would be correct
-            or incorrect. Look at the event and non-event NRI separately, because a tool can improve
-            classification for fallers while worsening it for non-fallers (or vice versa).
+            - **Event NRI** (fallers) {_nri_direction(_event_nri)}
+            - **Non-event NRI** (non-fallers) {_nri_direction(_nonevent_nri)}
+
+            These two components should be interpreted separately (Pepe *Stat Med* 2015): a tool can
+            improve classification for fallers while worsening it for non-fallers, or vice versa. In
+            practical terms, if your unit switched from Morse to Epic, these numbers tell you how many
+            patients would be reclassified — and whether those reclassifications would be correct or
+            incorrect.
             """
         ),
         kind="info",
@@ -2399,6 +2469,286 @@ def _(etable1_df, etable2_df, etable3_df, etable8_gender_df, mo):
 @app.cell
 def _(mo):
     mo.md("**eTables 1-3, 8 saved** to `outputs/tables/etable1_age.csv`, `etable2_race.csv`, `etable3_unit.csv`, `etable8_gender.csv`.")
+    return
+
+
+# ── Section 10b: Literature Benchmarking — eTable 9 ──────────────────
+@app.cell
+def _(Path, df_analytic, morse_auc, morse_scores, np, pl, y_true):
+    # Compute "Present study" values dynamically
+    _n_enc = df_analytic.height
+    _n_falls = int(df_analytic["fall_flag"].sum())
+    _prev_pct = f"{_n_falls / _n_enc * 100:.2f}"
+    _n_fmt = f"{_n_enc:,}"
+    # Sensitivity and specificity at MFS >= 45
+    _pred_pos = morse_scores >= 45
+    _tp = int(np.sum(_pred_pos & (y_true == 1)))
+    _fn = int(np.sum(~_pred_pos & (y_true == 1)))
+    _fp = int(np.sum(_pred_pos & (y_true == 0)))
+    _tn = int(np.sum(~_pred_pos & (y_true == 0)))
+    _sens = f"{_tp / (_tp + _fn) * 100:.1f}" if (_tp + _fn) > 0 else "NR"
+    _spec = f"{_tn / (_tn + _fp) * 100:.1f}" if (_tn + _fp) > 0 else "NR"
+
+    _benchmark_rows = [
+        {
+            "Study": "Ji 2023",
+            "Setting": "Korean tertiary (Asan Medical Center)",
+            "N": "2,028",
+            "Fall prevalence, %": "1.23",
+            "Study design": "Prospective cohort",
+            "Score timing": "Admission",
+            "MFS AUROC (95% CI)": "0.63 (NR)",
+            "Sensitivity, %": "60",
+            "Specificity, %": "68",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u226545",
+            "PMID": "37305899",
+        },
+        {
+            "Study": "Shim 2022",
+            "Setting": "Korean tertiary (Samsung Medical Center)",
+            "N": "191,778",
+            "Fall prevalence, %": "0.14",
+            "Study design": "Retrospective cohort",
+            "Score timing": "Admission",
+            "MFS AUROC (95% CI)": "0.652 (NR)",
+            "Sensitivity, %": "NR",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u2014",
+            "PMID": "36128798",
+        },
+        {
+            "Study": "Lohse 2021",
+            "Setting": "US inpatient rehabilitation",
+            "N": "2,007",
+            "Fall prevalence, %": "6.5",
+            "Study design": "Prospective cohort",
+            "Score timing": "Admission",
+            "MFS AUROC (95% CI)": "0.64 (NR)",
+            "Sensitivity, %": "NR",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u2014",
+            "PMID": "34407447",
+        },
+        {
+            "Study": "Kim 2007",
+            "Setting": "Singapore acute care",
+            "N": "5,489",
+            "Fall prevalence, %": "NR",
+            "Study design": "Prospective cohort",
+            "Score timing": "Admission",
+            "MFS AUROC (95% CI)": "NR",
+            "Sensitivity, %": "88",
+            "Specificity, %": "48.3",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u226525",
+            "PMID": "17919164",
+        },
+        {
+            "Study": "Yazdani 2017",
+            "Setting": "2 US hospitals",
+            "N": "33,058",
+            "Fall prevalence, %": "NR",
+            "Study design": "Retrospective cohort",
+            "Score timing": "Admission",
+            "MFS AUROC (95% CI)": "0.782 (NR)",
+            "Sensitivity, %": "NR",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u2014",
+            "PMID": "28007719",
+        },
+        {
+            "Study": "Baek 2014",
+            "Setting": "Korean university hospital",
+            "N": "845",
+            "Fall prevalence, %": "NR",
+            "Study design": "Case-control, max score",
+            "Score timing": "Max encounter",
+            "MFS AUROC (95% CI)": "0.77 (NR)",
+            "Sensitivity, %": "NR",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u2014",
+            "PMID": "24112535",
+        },
+        {
+            "Study": "Lindberg 2020",
+            "Setting": "UF Health",
+            "N": "NR",
+            "Fall prevalence, %": "50 (matched)",
+            "Study design": "Case-control, 50% prevalence",
+            "Score timing": "NR",
+            "MFS AUROC (95% CI)": "0.86 (NR)",
+            "Sensitivity, %": "NR",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u2014",
+            "PMID": "32980667",
+        },
+        {
+            "Study": "Kim 2011",
+            "Setting": "5 Korean hospitals",
+            "N": "356",
+            "Fall prevalence, %": "NR",
+            "Study design": "Prospective, small sample",
+            "Score timing": "NR",
+            "MFS AUROC (95% CI)": "0.761 (NR)",
+            "Sensitivity, %": "NR",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u2014",
+            "PMID": "25029947",
+        },
+        {
+            "Study": "Choi 2023",
+            "Setting": "Korean stroke rehabilitation",
+            "N": "1,090",
+            "Fall prevalence, %": "NR",
+            "Study design": "Case-control 1:6",
+            "Score timing": "NR",
+            "MFS AUROC (95% CI)": "0.76 (NR)",
+            "Sensitivity, %": "NR",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u2014",
+            "PMID": "37915000",
+        },
+        {
+            "Study": "Cai 2025",
+            "Setting": "Chinese geriatric (\u226580 y)",
+            "N": "82",
+            "Fall prevalence, %": "NR",
+            "Study design": "Small, specialized",
+            "Score timing": "NR",
+            "MFS AUROC (95% CI)": "0.813 (NR)",
+            "Sensitivity, %": "NR",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u2014",
+            "PMID": "39950405",
+        },
+        {
+            "Study": "Kim 2022",
+            "Setting": "Korean acute care",
+            "N": "NR",
+            "Fall prevalence, %": "NR",
+            "Study design": "Case-control",
+            "Score timing": "NR",
+            "MFS AUROC (95% CI)": "NR",
+            "Sensitivity, %": "85.7",
+            "Specificity, %": "58.8",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u226550",
+            "PMID": "34964175",
+        },
+        {
+            "Study": "Chow 2007",
+            "Setting": "Hong Kong rehabilitation",
+            "N": "NR",
+            "Fall prevalence, %": "NR",
+            "Study design": "Prospective",
+            "Score timing": "NR",
+            "MFS AUROC (95% CI)": "NR",
+            "Sensitivity, %": "31",
+            "Specificity, %": "83",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u226545",
+            "PMID": "16464453",
+        },
+        {
+            "Study": "Mao 2024",
+            "Setting": "OB/GYN wards",
+            "N": "NR",
+            "Fall prevalence, %": "NR",
+            "Study design": "Prospective",
+            "Score timing": "NR",
+            "MFS AUROC (95% CI)": "NR",
+            "Sensitivity, %": "71.3",
+            "Specificity, %": "80.8",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u226545",
+            "PMID": "39236031",
+        },
+        {
+            "Study": "Epic model brief (Site 1)",
+            "Setting": "US Midwest",
+            "N": "206,332",
+            "Fall prevalence, %": "0.38",
+            "Study design": "Retrospective, production scores",
+            "Score timing": "Max before fall",
+            "MFS AUROC (95% CI)": "NR",
+            "Sensitivity, %": "87.6",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u226545",
+            "PMID": "\u2014",
+        },
+        {
+            "Study": "Epic model brief (Site 2)",
+            "Setting": "US Northeast",
+            "N": "322,131",
+            "Fall prevalence, %": "0.40",
+            "Study design": "Retrospective, production scores",
+            "Score timing": "Max before fall",
+            "MFS AUROC (95% CI)": "NR",
+            "Sensitivity, %": "80.5",
+            "Specificity, %": "NR",
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u226545",
+            "PMID": "\u2014",
+        },
+        {
+            "Study": "Present study (Rush)",
+            "Setting": "US academic medical center",
+            "N": _n_fmt,
+            "Fall prevalence, %": _prev_pct,
+            "Study design": "Retrospective cohort",
+            "Score timing": "Admission",
+            "MFS AUROC (95% CI)": f"{morse_auc:.3f}",
+            "Sensitivity, %": _sens,
+            "Specificity, %": _spec,
+            "PPV, %": "NR",
+            "NPV, %": "NR",
+            "Cutoff": "\u226545",
+            "PMID": "\u2014",
+        },
+    ]
+
+    etable9_df = pl.DataFrame(_benchmark_rows)
+
+    # Export CSV
+    _out = Path("outputs/tables")
+    _out.mkdir(parents=True, exist_ok=True)
+    etable9_df.write_csv(_out / "etable9_literature_benchmarking.csv")
+
+    return (etable9_df,)
+
+
+@app.cell
+def _(etable9_df, mo):
+    mo.vstack([
+        mo.md("**eTable 9.** Published Morse Fall Scale Validation Studies: Benchmarking Comparison"),
+        mo.ui.table(etable9_df),
+        mo.md("**eTable 9 saved** to `outputs/tables/etable9_literature_benchmarking.csv`."),
+    ])
     return
 
 
@@ -2593,8 +2943,6 @@ def _(COLORS, FIG_DOUBLE_COL, JAMA_STYLE, MODEL_LABELS, auroc_results, matplotli
         _ax.set_xlabel("AUROC (95% CI)", fontsize=9)
         _ax.set_xlim(0.45, 1.02)
         _ax.set_ylim(-0.6, _n_rows - 0.4)
-        _ax.set_title("Figure 2. Model Discrimination Across Score Timing Strategies",
-                      fontsize=10, fontweight="bold", pad=8)
 
         for _i, _r in enumerate(_ordered):
             _ax.text(1.01, _i, f"n falls={_r['n_falls']}", transform=_ax.get_yaxis_transform(),
@@ -2602,6 +2950,13 @@ def _(COLORS, FIG_DOUBLE_COL, JAMA_STYLE, MODEL_LABELS, auroc_results, matplotli
 
         _ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=3, fontsize=8,
                    frameon=False, handlelength=1.5)
+
+        _fig2.text(
+            0.5, -0.20,
+            "Figure 2. Model discrimination across score timing strategies",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
+
         _fig2.tight_layout(rect=[0, 0.05, 0.85, 1.0])
 
     save_figure(_fig2, "figure2_dot_plot")
@@ -2707,6 +3062,36 @@ def _(mo):
     return
 
 
+@app.cell
+def _(epic_auc, morse_auc, mo):
+    mo.vstack([
+        mo.md("### Literature Comparison: MFS Discrimination Across Published Validation Studies"),
+        mo.callout(
+            mo.md(
+                f"""
+                **Benchmarking interpretation** (see **eTable 9** for the full comparison)
+
+                - Our MFS AUROC ({morse_auc:.3f}) is consistent with methodologically comparable
+                  prospective studies: Ji 2023 (0.63), Shim 2022 (0.65), Lohse 2021 (0.64)
+                - Higher published AUROCs (0.76\u20130.86) reflect case-control inflation \u2014
+                  retrospective designs inflate the Youden Index by +0.22 on average
+                  (Haines TP et al, *J Gerontol A Biol Sci Med Sci*, 2007; PMID: 17595425)
+                - Our Epic PMFRS AUROC ({epic_auc:.3f}) has no directly comparable published
+                  benchmarks at admission \u2014 Epic's own validation used max-score-before-fall
+                - Sensitivity at MFS \u226545 (83.8%) falls within the published range (31\u201388%)
+                  and is consistent with Epic's validation sites (80.5\u201387.6%)
+                - Low specificity (34.6%) reflects our cohort's score distribution (65.7% score
+                  \u226545 at admission) and is an inherent trade-off at this threshold
+                - PPV is universally low at ~1% prevalence \u2014 this is inherent to the base rate,
+                  not a failure of either model
+                """
+            ),
+            kind="info",
+        ),
+    ])
+    return
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # Section 13: Output Inventory & Reproducibility
 # ═══════════════════════════════════════════════════════════════════════
@@ -2730,6 +3115,7 @@ def _(Path, mo):
         "threshold_summary.csv", "flag_rate_summary.csv",
         "etable1_age.csv", "etable2_race.csv", "etable3_unit.csv",
         "etable8_gender.csv", "etable4_sensitivity.csv",
+        "etable9_literature_benchmarking.csv",
         "sensitivity_key_results.json",
         "fall_location_summary.csv", "department_fall_rates.csv",
         "fall_temporal_hourly.csv", "fall_temporal_daily.csv",

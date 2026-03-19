@@ -326,6 +326,12 @@ def _(
 
         fig3.subplots_adjust(bottom=0.22)
 
+        fig3.text(
+            0.5, -0.02,
+            "Figure 3. Decision curve analysis: Epic PMFRS vs Morse Fall Scale",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
+
     save_figure(fig3, "figure3_dca")
     fig3
     return (fig3,)

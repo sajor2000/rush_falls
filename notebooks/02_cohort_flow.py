@@ -459,6 +459,13 @@ def _(FancyArrowPatch, FancyBboxPatch, JAMA_STYLE, flow_counts, plt, save_figure
         _arrow(_MX - 0.06, _analy_bot, _FALL_X, _split_top, cs="arc3,rad=0.12")
         _arrow(_MX + 0.06, _analy_bot, _NOFALL_X, _split_top, cs="arc3,rad=-0.12")
 
+        # ── Figure title below (JAMA convention) ───────────────────────
+        _fig.text(
+            0.5, -0.02,
+            "eFigure 4. CONSORT-style cohort flow diagram",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
+
         # ── Save figure ───────────────────────────────────────────────
         save_figure(_fig, "efigure4_cohort_flow", formats=("pdf", "png"))
 

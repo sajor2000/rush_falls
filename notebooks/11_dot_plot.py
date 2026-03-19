@@ -251,13 +251,7 @@ def _(
         # Y-axis limits with padding
         ax.set_ylim(-0.6, _n_rows - 0.4)
 
-        # Title
-        ax.set_title(
-            "Figure 2. Model Discrimination Across Score Timing Strategies",
-            fontsize=10,
-            fontweight="bold",
-            pad=8,
-        )
+        # Title below (JAMA convention: captions below figure)
 
         # Annotate n falls for each row (right side)
         for _i, _r in enumerate(_ordered):
@@ -281,6 +275,12 @@ def _(
             fontsize=8,
             frameon=False,
             handlelength=1.5,
+        )
+
+        fig2.text(
+            0.5, -0.20,
+            "Figure 2. Model discrimination across score timing strategies",
+            ha="center", va="top", fontsize=10, fontweight="bold",
         )
 
         fig2.tight_layout(rect=[0, 0.05, 0.85, 1.0])

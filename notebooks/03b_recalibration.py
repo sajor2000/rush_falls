@@ -511,13 +511,13 @@ def _(
         _ax2.set_xlim(-3, 128)
         _ax2.set_ylim(-0.25, max(_morse_y * 100) * 1.15)
 
-        _fig.suptitle(
-            "Score-to-probability mapping via logistic recalibration",
-            fontsize=10,
-            fontweight="bold",
-            y=1.02,
-        )
         _fig.subplots_adjust(wspace=0.35, bottom=0.13)
+
+        _fig.text(
+            0.5, -0.02,
+            "Score-to-probability mapping via logistic recalibration",
+            ha="center", va="top", fontsize=10, fontweight="bold",
+        )
 
     save_figure(_fig, "recalibration_mapping")
     _fig

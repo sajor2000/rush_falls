@@ -246,12 +246,6 @@ def _(matplotlib, np, plt):
 
             _ax.set_xlabel("Predicted probability", fontsize=9)
             _ax.set_ylabel("Observed event rate", fontsize=9)
-            _ax.set_title(
-                f"Calibration: {model_label}",
-                fontsize=10,
-                fontweight="bold",
-                pad=6,
-            )
             _ax.set_xlim(-0.002, _axis_max * 1.05)
             _ax.set_ylim(_rug_y_nonevent - _rug_height, _axis_max * 1.05)
             _ax.tick_params(labelsize=8)
@@ -306,6 +300,11 @@ def _(
         jama_style=JAMA_STYLE,
         fig_size=FIG_SINGLE_COL,
     )
+    _efig1.text(
+        0.5, -0.22,
+        "eFigure 1. Calibration plot: Epic PMFRS",
+        ha="center", va="top", fontsize=10, fontweight="bold",
+    )
     save_figure(_efig1, "efigure1_calibration_epic")
     efigure1 = _efig1
     return (efigure1,)
@@ -339,6 +338,11 @@ def _(
         line_color=COLORS["morse"],
         jama_style=JAMA_STYLE,
         fig_size=FIG_SINGLE_COL,
+    )
+    _efig2.text(
+        0.5, -0.22,
+        "eFigure 2. Calibration plot: Morse Fall Scale",
+        ha="center", va="top", fontsize=10, fontweight="bold",
     )
     save_figure(_efig2, "efigure2_calibration_morse")
     efigure2 = _efig2
