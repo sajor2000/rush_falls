@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# Virtual environment (uv manages this)
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (do NOT commit PHI/patient data)
+data/
+*.xlsx
+*.xls
+*.csv
+!data/.gitkeep
+
+# Output artifacts
+output/
+outputs/
+
+# Ruff cache
+.ruff_cache/
+
+# Pytest cache
+.pytest_cache/
+
+# Marimo autosave
+*.py.bak
+
+# Environment variables
+.env
