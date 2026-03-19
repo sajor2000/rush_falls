@@ -93,19 +93,19 @@ def _(Path, pl):
 @app.cell
 def _(df):
     y_true = df["fall_flag"].to_numpy()
-    epic_score = df["epic_score_admission"].to_numpy()
-    morse_score = df["morse_score_admission"].to_numpy()
-    return epic_score, morse_score, y_true
+    epic_scores = df["epic_score_admission"].to_numpy()
+    morse_scores = df["morse_score_admission"].to_numpy()
+    return epic_scores, morse_scores, y_true
 
 
 # ── Logistic recalibration ────────────────────────────────────────────
 @app.cell
-def _(EPIC_2TIER_HIGH, EPIC_3TIER_MEDIUM, MFS_HIGH, MFS_MODERATE, epic_score, logistic_recalibration, morse_score, y_true):
-    epic_prob, _epic_lr = logistic_recalibration(epic_score, y_true)
-    morse_prob, _morse_lr = logistic_recalibration(morse_score, y_true)
+def _(EPIC_2TIER_HIGH, EPIC_3TIER_MEDIUM, MFS_HIGH, MFS_MODERATE, epic_scores, logistic_recalibration, morse_scores, y_true):
+    epic_prob, _epic_lr = logistic_recalibration(epic_scores, y_true)
+    morse_prob, _morse_lr = logistic_recalibration(morse_scores, y_true)
 
     # Probability equivalents for standard cutoffs
-    # Epic ≥70 omitted: at admission only 0.4% score ≥70, uninformative for NRI
+    # Epic ≥70 omitted: too few encounters score ≥70 at admission for meaningful NRI
     morse_prob_at_25 = float(_morse_lr.predict_proba([[float(MFS_MODERATE)]])[0, 1])
     morse_prob_at_45 = float(_morse_lr.predict_proba([[float(MFS_HIGH)]])[0, 1])
     epic_prob_at_35 = float(_epic_lr.predict_proba([[float(EPIC_3TIER_MEDIUM)]])[0, 1])
@@ -115,9 +115,10 @@ def _(EPIC_2TIER_HIGH, EPIC_3TIER_MEDIUM, MFS_HIGH, MFS_MODERATE, epic_score, lo
 
 # ── Youden threshold from Morse (reference model) ────────────────────
 @app.cell
-def _(epic_prob, epic_prob_at_35, epic_prob_at_50, morse_prob, morse_prob_at_25, morse_prob_at_45, mo, y_true, youden_threshold):
+def _(epic_prob, epic_prob_at_35, epic_prob_at_50, epic_scores, morse_prob, morse_prob_at_25, morse_prob_at_45, mo, np, y_true, youden_threshold):
     morse_youden = youden_threshold(y_true, morse_prob)
     epic_youden = youden_threshold(y_true, epic_prob)
+    pct_ge70 = float(np.sum(epic_scores >= 70) / len(epic_scores) * 100)
     mo.md(
         f"""
         ### Categorical NRI Thresholds
@@ -134,11 +135,11 @@ def _(epic_prob, epic_prob_at_35, epic_prob_at_50, morse_prob, morse_prob_at_25,
         These thresholds convert models' probabilities to binary
         high/low-risk classifications for categorical NRI calculations.
 
-        **Note**: Epic ≥70 omitted — at admission only 0.4% of encounters
+        **Note**: Epic ≥70 omitted — at admission only {pct_ge70:.1f}% of encounters
         score ≥70, making categorical NRI at this cutoff uninformative.
         """
     )
-    return epic_youden, morse_youden
+    return epic_youden, morse_youden, pct_ge70
 
 
 # ── Point estimates ───────────────────────────────────────────────────
@@ -335,7 +336,7 @@ def _(mo, table3):
 
 # ── great-tables rendering ────────────────────────────────────────────
 @app.cell
-def _(mo, table3):
+def _(mo, pct_ge70, table3):
     try:
         from great_tables import GT, loc, style
 
@@ -364,7 +365,7 @@ def _(mo, table3):
             .tab_source_note(
                 "Direction: Epic PMFRS (new) vs Morse Fall Scale (reference). "
                 "Positive values indicate Epic reclassifies better than Morse. "
-                "Epic \u226570 omitted: at admission only 0.4% of encounters score \u226570, "
+                f"Epic \u226570 omitted: at admission only {pct_ge70:.1f}% of encounters score \u226570, "
                 "making categorical NRI at this cutoff uninformative."
             )
         )

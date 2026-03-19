@@ -17,7 +17,7 @@ def _(mo):
 
         | Instrument | Range | What the number means |
         |---|---|---|
-        | **Epic PMFRS** | 0–100 (continuous float) | Output of an ordinal logistic regression trained on a **3-level target**: (0) no intervention & not high-risk & no fall, (1) high-risk or minor intervention, (2) major intervention or fall. A score of 45 does **not** mean "45 % chance of falling." |
+        | **Epic PMFRS** | 0–100 (continuous float) | Output of an ordinal logistic regression trained on a **3-level target**: (0) no intervention & not high-risk & no fall, (1) high-risk or minor intervention, (2) major intervention or fall. A score of 45 does **not** mean "45% chance of falling." |
         | **Morse Fall Scale** | 0–125 (discrete integer) | Sum of 6 nurse-assessed items — e.g., 25 points for fall history + 20 for IV therapy = 45. The total is an additive checklist, not a probability. |
 
         **Recalibration** answers the question: *"In our hospital, what is the
@@ -25,7 +25,7 @@ def _(mo):
         a given score?"*
 
         This notebook walks through the recalibration step that all downstream
-        analyses (notebooks 04–08) rely on. It is designed so that someone
+        analyses (notebooks 04–11) rely on. It is designed so that someone
         without biostatistics training can follow along.
         """
     )
@@ -90,7 +90,7 @@ def _(Path, mo, pl):
         ## Dataset
 
         - **Encounters**: {_n:,}
-        - **Falls**: {_n_falls:,} ({_n_falls / _n * 100:.2f}%)
+        - **Falls**: {_n_falls:,} ({_n_falls / _n * 100:.1f}%)
         """
     )
     return (df,)
@@ -281,16 +281,19 @@ def _(df, mo, np, pl):
 
 # ── Cell 7: Why scores are not probabilities ─────────────────────────────
 @app.cell
-def _(mo):
+def _(df, epic_scores, mo, np, pl):
+    _prev = df.filter(pl.col("fall_flag") == 1).height / df.height * 100
+    _epic_median = float(np.median(epic_scores))
+    _pct_ge50 = float(np.sum(epic_scores >= 50) / len(epic_scores) * 100)
     mo.md(
-        """
+        f"""
         ## Why raw scores are not probabilities
 
         If the Epic score (0–100) were a probability of falling, then:
 
-        - The **median** should be close to the prevalence (~1.3 %), not 5.5.
-        - A score of 50 would mean "50 % chance of falling" — but fewer than
-          0.5 % of encounters ever reach 50 at admission.
+        - The **median** should be close to the prevalence (~{_prev:.1f}%), not {_epic_median:.1f}.
+        - A score of 50 would mean "50% chance of falling" — but only about
+          {_pct_ge50:.1f}% of encounters score ≥50 at admission.
 
         The Epic model was trained on a **3-level ordinal target** that includes
         nursing interventions and high-risk designations — not just falls. So a
@@ -301,7 +304,7 @@ def _(mo):
         The Morse score is even further from a probability: it is a simple
         **additive checklist** (history of falling = 25, IV therapy = 20,
         weak gait = 10, etc.). A score of 45 means the patient has certain risk
-        factors — not that 45 % of similar patients fall.
+        factors — not that 45% of similar patients fall.
 
         **Key point**: Both scores correctly **rank** patients by risk (higher
         score = riskier). This ranking ability is what AUROC measures, and it
@@ -349,11 +352,12 @@ def _(epic_scores, logistic_recalibration, morse_scores, y_true):
 
 # ── Cell 9: Model coefficients ───────────────────────────────────────────
 @app.cell
-def _(epic_lr, mo, morse_lr, np):
+def _(df, epic_lr, mo, morse_lr, np, pl):
     _epic_a = epic_lr.intercept_[0]
     _epic_b = epic_lr.coef_[0][0]
     _morse_a = morse_lr.intercept_[0]
     _morse_b = morse_lr.coef_[0][0]
+    _prev = df.filter(pl.col("fall_flag") == 1).height / df.height * 100
 
     mo.md(
         f"""
@@ -368,7 +372,7 @@ def _(epic_lr, mo, morse_lr, np):
 
         - The **intercept** (*a*) captures the baseline log-odds of falling
           when the score is 0. A large negative value means very low baseline
-          risk — as expected, since falls are rare (~1.3 %).
+          risk — as expected, since falls are rare (~{_prev:.1f}%).
         - The **slope** (*b*) is how much the log-odds increase for each
           1-point rise in the score. Positive *b* means higher score → higher
           risk.
@@ -596,7 +600,7 @@ def _(
         The table below translates familiar clinical cutoffs into predicted
         fall probabilities in our cohort. For example, a Morse score of {MFS_HIGH}
         (the "high risk" threshold) corresponds to approximately
-        {_prob_at(morse_lr, MFS_HIGH) * 100:.1f} % predicted probability of falling.
+        {_prob_at(morse_lr, MFS_HIGH) * 100:.1f}% predicted probability of falling.
         """
     )
     mo.ui.table(_cutoff_df)
@@ -605,14 +609,15 @@ def _(
 
 # ── Cell 12: Recalibrated probability distributions ─────────────────────
 @app.cell
-def _(mo):
+def _(df, mo, pl):
+    _prev = df.filter(pl.col("fall_flag") == 1).height / df.height * 100
     mo.md(
-        """
+        f"""
         ## Recalibrated probability distributions
 
         After recalibration, both models produce predicted probabilities on
-        the same scale (0 % to ~10 %). This makes direct comparison possible.
-        The vertical dashed line marks the cohort prevalence (1.27 %).
+        the same scale. This makes direct comparison possible.
+        The vertical dashed line marks the cohort prevalence ({_prev:.1f}%).
         """
     )
     return
@@ -771,7 +776,7 @@ def _(calibration_metrics, epic_prob, mo, morse_prob, y_true):
           difference between the LOWESS-smoothed observed rate and predicted
           probability. Smaller is better.
 
-        These metrics describe the *calibration* notebooks (05) in more detail.
+        The calibration notebook (05) explores these metrics in more detail.
         """
     )
     return
@@ -802,7 +807,7 @@ def _(mo):
            calibration plots, and value-optimizing thresholds all need actual
            predicted probabilities, not arbitrary score units.
 
-        5. **All downstream notebooks (04–08) use this same recalibration** via
+        5. **All downstream notebooks (04–11) use this same recalibration** via
            `logistic_recalibration()` in `utils/metrics.py`. This notebook
            documents the shared step so every collaborator understands what it
            does and why.

@@ -2,8 +2,8 @@
 
 # ─── Configuration ────────────────────────────────────────────────────
 NOTEBOOKS := $(wildcard notebooks/*.py)
-HTML_DIR  := output/html
-PDF_DIR   := output/pdf
+HTML_DIR  := outputs/html
+PDF_DIR   := outputs/pdf
 
 # ─── Setup ────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -69,11 +69,11 @@ export-html: ## Export all notebooks to HTML
 	@echo "\n✓ HTML exports in $(HTML_DIR)/"
 
 export-md: ## Export all notebooks to Markdown
-	@mkdir -p output/md
+	@mkdir -p outputs/md
 	@for nb in $(NOTEBOOKS); do \
 		name=$$(basename $$nb .py); \
 		echo "── Exporting $$name.md ──"; \
-		uv run marimo export md $$nb -o output/md/$$name.md || exit 1; \
+		uv run marimo export md $$nb -o outputs/md/$$name.md || exit 1; \
 	done
 
 docx: ## Generate JAMA-formatted DOCX tables from CSVs
@@ -82,7 +82,7 @@ docx: ## Generate JAMA-formatted DOCX tables from CSVs
 
 # ─── Cleanup ──────────────────────────────────────────────────────────
 clean: ## Remove build artifacts and caches
-	rm -rf output/ outputs/ __pycache__ .ruff_cache .pytest_cache
+	rm -rf outputs/ __pycache__ .ruff_cache .pytest_cache
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
 
 # ─── Data ─────────────────────────────────────────────────────────────

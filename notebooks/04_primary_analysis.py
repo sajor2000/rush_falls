@@ -6,12 +6,13 @@ app = marimo.App(width="full")
 
 @app.cell
 def _():
-    import marimo as mo
-    import polars as pl
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import matplotlib
     from pathlib import Path
+
+    import marimo as mo
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import polars as pl
 
     return Path, matplotlib, mo, np, pl, plt
 
@@ -242,10 +243,12 @@ def _(
     MFS_HIGH,
     MFS_MODERATE,
     epic_lr,
+    epic_scores,
     epic_t_youden,
     mo,
     morse_lr,
     morse_t_youden,
+    np,
 ):
     # Probability equivalents at Epic standard cutoffs
     _epic_prob_at_35 = float(epic_lr.predict_proba([[float(EPIC_3TIER_MEDIUM)]])[0, 1])
@@ -259,6 +262,8 @@ def _(
     # Rush Youden probability equivalents
     _epic_prob_at_youden = float(epic_lr.predict_proba([[epic_t_youden]])[0, 1])
     _morse_prob_at_youden = float(morse_lr.predict_proba([[morse_t_youden]])[0, 1])
+
+    _pct_below_35 = float(np.sum(epic_scores < 35) / len(epic_scores) * 100)
 
     mo.md(
         f"""
@@ -278,7 +283,7 @@ def _(
         | Morse Fall Scale | Rush Youden | {morse_t_youden:.2f} | {_morse_prob_at_youden:.4f} |
 
         **Note**: Epic thresholds (35/50/70) are designed for continuous monitoring, not
-        admission screening. At admission, 97% of encounters score < 35, so these
+        admission screening. At admission, {_pct_below_35:.0f}% of encounters score < 35, so these
         cutoffs map to high probability equivalents with very low flag rates.
         """
     )
@@ -674,7 +679,7 @@ def _(
         _panel_labels = ["A", "B", "C", "D"]
 
         for _idx, ((_title, _epic_y, _morse_y), _ax, _lbl) in enumerate(
-            zip(_panels, _axes.flat, _panel_labels)
+            zip(_panels, _axes.flat, _panel_labels, strict=True)
         ):
             _ax.plot(
                 _epic_t,

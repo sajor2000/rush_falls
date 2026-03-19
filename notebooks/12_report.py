@@ -6,10 +6,11 @@ app = marimo.App(width="full")
 
 @app.cell
 def _():
-    import marimo as mo
-    import polars as pl
     import json
     from pathlib import Path
+
+    import marimo as mo
+    import polars as pl
 
     return Path, json, mo, pl
 
@@ -34,19 +35,20 @@ def _(Path, json, mo):
     results_path = Path("outputs/tables/sensitivity_key_results.json")
     key_results = json.loads(results_path.read_text()) if results_path.exists() else {}
 
-    n_enc = key_results.get("n_encounters", "N/A")
-    n_falls = key_results.get("n_falls", "N/A")
+    n_enc = key_results.get("n_encounters", 0)
+    n_falls = key_results.get("n_falls", 0)
     epic_auroc = key_results.get("primary_epic_auroc", "N/A")
     epic_ci = key_results.get("primary_epic_ci", "N/A")
     morse_auroc = key_results.get("primary_morse_auroc", "N/A")
     morse_ci = key_results.get("primary_morse_ci", "N/A")
     delong_p = key_results.get("primary_delong_p", "N/A")
+    _event_rate = f"{n_falls / n_enc * 100:.1f}" if n_enc else "N/A"
 
     mo.md(
         f"""
         ## Key Findings
 
-        Among **{n_enc:,}** inpatient encounters ({n_falls:,} falls; 1.0% event rate),
+        Among **{n_enc:,}** inpatient encounters ({n_falls:,} falls; {_event_rate}% event rate),
         discrimination at admission was:
 
         | Model | AUROC | 95% CI |
@@ -55,12 +57,9 @@ def _(Path, json, mo):
         | Morse Fall Scale | {morse_auroc} | {morse_ci} |
 
         Paired DeLong test: **p {delong_p}**
-
-        Both models demonstrated poor-to-fair discrimination, with the Morse Fall Scale
-        statistically superior to the Epic PMFRS at admission (p {delong_p}).
         """
     )
-    return (key_results,)
+    return key_results, n_enc, n_falls
 
 
 # ── Table 1: Patient Characteristics ──────────────────────────────
@@ -275,24 +274,23 @@ def _(etable4_sens_df, mo):
 
 # ── Interpretation ────────────────────────────────────────────────
 @app.cell
-def _(key_results, mo):
-    epic_auroc_val = key_results.get("primary_epic_auroc", "N/A")
-    morse_auroc_val = key_results.get("primary_morse_auroc", "N/A")
+def _(key_results, mo, n_enc, n_falls):
+    _epic_auroc = key_results.get("primary_epic_auroc", "N/A")
+    _morse_auroc = key_results.get("primary_morse_auroc", "N/A")
+    _delong_p = key_results.get("primary_delong_p", "N/A")
+    _prev_pct = f"{n_falls / n_enc * 100:.1f}" if n_enc else "N/A"
 
     mo.md(
         f"""
         ## Interpretation
 
         ### Discrimination
-        Both the Epic PMFRS (AUROC {epic_auroc_val}) and Morse Fall Scale
-        (AUROC {morse_auroc_val}) demonstrated poor-to-fair discrimination for
-        inpatient falls using admission scores. The Morse Fall Scale achieved
-        statistically superior discrimination (DeLong p < 0.001), though both
-        AUROCs fall below the 0.70 threshold typically considered acceptable
-        for clinical decision-making.
+        The Epic PMFRS achieved an AUROC of {_epic_auroc} and the Morse Fall
+        Scale an AUROC of {_morse_auroc} for predicting inpatient falls using
+        admission scores (paired DeLong p {_delong_p}).
 
         ### Clinical Implications
-        At 1% fall prevalence, both models generate substantial false positives.
+        At {_prev_pct}% fall prevalence, both models generate substantial false positives.
         Decision curve analysis (Figure 3) should be consulted to determine the
         threshold range where either model provides net benefit over treat-all
         or treat-none strategies.

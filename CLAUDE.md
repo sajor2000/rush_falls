@@ -285,6 +285,7 @@ Mapped to Wong et al. JAMA Network Open 2026:
 | **Figure 1** | Multi-panel discrimination (sens, spec, PPV, NPV across thresholds) | `04_primary_analysis.py` |
 | **Figure 2** | Dot plot: AUROC comparison across score timings | `11_dot_plot.py` |
 | **Figure 3** | Decision curve analysis | `06_decision_curve.py` |
+| **Notebook 03b** | Recalibration explainer (no numbered figure; generates `recalibration_mapping`) | `03b_recalibration.py` |
 
 ### Supplement
 
@@ -299,6 +300,7 @@ Mapped to Wong et al. JAMA Network Open 2026:
 | **eTable 2** | Fairness audit: stratified by race/ethnicity | `09_fairness_audit.py` |
 | **eTable 3** | Fairness audit: stratified by unit type | `09_fairness_audit.py` |
 | **eTable 4** | Sensitivity analyses summary (all score timings) | `10_sensitivity_analyses.py` |
+| **Notebook 12** | Aggregate report — collects key results from all notebooks | `12_report.py` |
 
 ---
 
@@ -318,6 +320,8 @@ Compare head-to-head for both models:
    - WTP: $100,000/QALY
 6. **DCA-derived**: range where net benefit > treat-all AND > treat-none
 7. **Standard cutoffs**: MFS ≥25 (moderate), ≥45 (high risk at Rush); Epic 3-tier: low (0–34), medium (35–69), high (70–100); Epic 2-tier: low (0–49), high (50–100)
+
+**Note on Epic ≥70**: At admission, only 0.4% of encounters score ≥70. This cutoff is included in descriptive analyses but omitted from categorical NRI (insufficient events for meaningful reclassification).
 
 ---
 
@@ -369,7 +373,7 @@ All analysis code is Marimo notebooks (.py files). Marimo is reactive, Git-frien
 ```bash
 uv run marimo edit notebooks/01_data_discovery.py   # Interactive editing
 uv run marimo run notebooks/01_data_discovery.py     # Run as script (CI)
-uv run marimo export html notebooks/01_data_discovery.py -o output/html/01_data_discovery.html
+uv run marimo export html notebooks/01_data_discovery.py -o outputs/html/01_data_discovery.html
 ```
 
 Marimo notebook structure:
@@ -506,6 +510,7 @@ rushfalla/
 │   ├── 01_data_discovery.py           # Column standardization, profiling, QC
 │   ├── 02_cohort_flow.py             # CONSORT diagram (eFigure 4)
 │   ├── 03_table1.py                  # Patient characteristics (Table 1)
+│   ├── 03b_recalibration.py          # Recalibration explainer + mapping figure
 │   ├── 04_primary_analysis.py        # AUROC, DeLong, metrics (Table 2, Figure 1)
 │   ├── 05_calibration.py             # Calibration plots (eFigures 1-2)
 │   ├── 06_decision_curve.py          # DCA (Figure 3)
@@ -513,7 +518,8 @@ rushfalla/
 │   ├── 08_reclassification.py        # NRI/IDI (Table 3)
 │   ├── 09_fairness_audit.py          # Stratified performance (eTables 1-3)
 │   ├── 10_sensitivity_analyses.py    # All sensitivity runs (eTable 4)
-│   └── 11_dot_plot.py                # Model comparison dot plot (Figure 2)
+│   ├── 11_dot_plot.py                # Model comparison dot plot (Figure 2)
+│   └── 12_report.py                  # Aggregate report — collects all results
 ├── utils/
 │   ├── __init__.py
 │   ├── metrics.py                     # DeLong, bootstrap, NRI/IDI, value-optimizing threshold
@@ -542,6 +548,7 @@ make edit NB=notebooks/02_cohort_flow.py
 
 # Phase 2: Descriptives
 make edit NB=notebooks/03_table1.py
+make edit NB=notebooks/03b_recalibration.py
 
 # Phase 3: Primary analysis
 make edit NB=notebooks/04_primary_analysis.py
@@ -554,6 +561,9 @@ make edit NB=notebooks/08_reclassification.py
 make edit NB=notebooks/09_fairness_audit.py
 make edit NB=notebooks/10_sensitivity_analyses.py
 make edit NB=notebooks/11_dot_plot.py
+
+# Phase 5: Aggregation
+make edit NB=notebooks/12_report.py
 
 # Batch run all (CI/reproducibility)
 make run-all
