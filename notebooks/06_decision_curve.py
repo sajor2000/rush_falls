@@ -51,6 +51,9 @@ def _():
 @app.cell
 def _():
     from utils.constants import (
+        DCA_THRESHOLD_MAX,
+        DCA_THRESHOLD_MIN,
+        DCA_THRESHOLD_STEP,
         EPIC_2TIER_HIGH,
         EPIC_3TIER_HIGH,
         EPIC_3TIER_MEDIUM,
@@ -61,6 +64,9 @@ def _():
     from utils.plotting import COLORS, JAMA_STYLE, save_figure
     return (
         COLORS,
+        DCA_THRESHOLD_MAX,
+        DCA_THRESHOLD_MIN,
+        DCA_THRESHOLD_STEP,
         EPIC_2TIER_HIGH,
         EPIC_3TIER_HIGH,
         EPIC_3TIER_MEDIUM,
@@ -144,7 +150,7 @@ def _(df, epic_prob, mo, morse_prob, np, pl):
 
 # ── DCA via dcurves ──────────────────────────────────────────────────
 @app.cell
-def _(df_with_probs, np):
+def _(DCA_THRESHOLD_MAX, DCA_THRESHOLD_MIN, DCA_THRESHOLD_STEP, df_with_probs, np):
     from dcurves import dca
 
     # Convert to pandas only at dcurves boundary
@@ -156,7 +162,7 @@ def _(df_with_probs, np):
         data=pdf,
         outcome="fall_flag",
         modelnames=["epic_prob", "morse_prob"],
-        thresholds=np.arange(0, 0.10, 0.001),
+        thresholds=np.arange(DCA_THRESHOLD_MIN, DCA_THRESHOLD_MAX, DCA_THRESHOLD_STEP),
     )
     return (df_dca,)
 

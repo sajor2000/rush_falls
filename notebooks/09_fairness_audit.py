@@ -18,7 +18,7 @@ def _():
 def _(mo):
     mo.md(
         """
-        # 09 — Fairness Audit: Stratified Performance (eTables 1–4)
+        # 09 — Fairness Audit: Stratified Performance (eTables 1–3, 8)
 
         **Purpose**: Evaluate Epic PMFRS and Morse Fall Scale discrimination across
         clinically meaningful subgroups to identify potential performance disparities.
@@ -27,7 +27,7 @@ def _(mo):
         - eTable 1: AUROC by age group
         - eTable 2: AUROC by race/ethnicity
         - eTable 3: AUROC by unit type (top 10 departments)
-        - eTable 4 (bonus): AUROC by gender
+        - eTable 8: AUROC by gender
 
         **Reference**: TRIPOD+AI Item 14e — subgroup performance across key demographics.
         """
@@ -394,7 +394,7 @@ def _(Path, etable3_df, mo):
     return
 
 
-# ── 7. eTable 4 (bonus): by gender ─────────────────────────────────
+# ── 7. eTable 8: by gender ─────────────────────────────────────────
 @app.cell
 def _(compute_subgroup_row, df, mo, pl):
     _gender_cats = (
@@ -413,17 +413,17 @@ def _(compute_subgroup_row, df, mo, pl):
             compute_subgroup_row(_sub, "Gender", str(_g))
         )
 
-    etable4_gender_df = pl.DataFrame(_rows_gender)
-    mo.md("## eTable 4 (Bonus) — Stratified Performance by Gender")
-    return (etable4_gender_df,)
+    etable8_gender_df = pl.DataFrame(_rows_gender)
+    mo.md("## eTable 8 — Stratified Performance by Gender")
+    return (etable8_gender_df,)
 
 
 @app.cell
-def _(GT, etable4_gender_df, loc, style):
+def _(GT, etable8_gender_df, loc, style):
     _gt4 = (
-        GT(etable4_gender_df)
+        GT(etable8_gender_df)
         .tab_header(
-            title="eTable 4. Model Performance Stratified by Gender",
+            title="eTable 8. Model Performance Stratified by Gender",
             subtitle="Admission scores; 95% CIs from 2000 stratified bootstrap resamples",
         )
         .tab_spanner(
@@ -466,11 +466,11 @@ def _(GT, etable4_gender_df, loc, style):
     return
 
 
-# ── Export eTable 4 (gender) CSV ─────────────────────────────────────
+# ── Export eTable 8 (gender) CSV ─────────────────────────────────────
 @app.cell
-def _(Path, etable4_gender_df, mo):
-    etable4_gender_df.write_csv(Path("outputs/tables/etable4_gender.csv"))
-    mo.md("**Saved**: `outputs/tables/etable4_gender.csv`")
+def _(Path, etable8_gender_df, mo):
+    etable8_gender_df.write_csv(Path("outputs/tables/etable8_gender.csv"))
+    mo.md("**Saved**: `outputs/tables/etable8_gender.csv`")
     return
 
 

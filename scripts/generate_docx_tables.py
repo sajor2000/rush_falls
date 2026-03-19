@@ -384,7 +384,7 @@ SUPPLEMENT_TABLES = [
         ],
     ),
     TableDef(
-        csv_file="etable4_gender.csv",
+        csv_file="etable8_gender.csv",
         label="eTable 8",
         title="Discrimination by Gender",
         footnotes=[

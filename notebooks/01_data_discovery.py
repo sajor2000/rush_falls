@@ -50,6 +50,17 @@ def _():
     )
 
 
+@app.cell
+def _():
+    import matplotlib
+    import matplotlib.pyplot as plt
+
+    from utils.plotting import FIG_DOUBLE_COL, FIG_SINGLE_COL, JAMA_STYLE, save_figure
+
+    matplotlib.rcParams.update(JAMA_STYLE)
+    return FIG_DOUBLE_COL, FIG_SINGLE_COL, plt, save_figure
+
+
 # ── 1. Load raw data ────────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
@@ -511,7 +522,246 @@ def _(df_analytic, mo, pl):
     return
 
 
-# ── 9. Write analytic parquet ───────────────────────────────────────
+# ── 9. Study Period Summary (TRIPOD+AI Item 5b) ──────────────────────
+@app.cell
+def _(df_analytic, mo, pl):
+    _adm_min = df_analytic["admission_date"].min()
+    _adm_max = df_analytic["admission_date"].max()
+    _dc_max = df_analytic["discharge_date"].max()
+    _fall_dates = df_analytic.filter(pl.col("fall_datetime").is_not_null())["fall_datetime"]
+    _fall_min = _fall_dates.min()
+    _fall_max = _fall_dates.max()
+    _duration_days = (_dc_max - _adm_min).total_seconds() / 86400
+    _duration_months = _duration_days / 30.44
+
+    mo.md(
+        f"""
+        ## Study Period Summary (TRIPOD+AI Item 5b)
+
+        | Parameter | Value |
+        |---|---|
+        | Earliest admission | {_adm_min.strftime('%Y-%m-%d')} |
+        | Latest admission | {_adm_max.strftime('%Y-%m-%d')} |
+        | Latest discharge | {_dc_max.strftime('%Y-%m-%d')} |
+        | Earliest fall | {_fall_min.strftime('%Y-%m-%d')} |
+        | Latest fall | {_fall_max.strftime('%Y-%m-%d')} |
+        | Study duration | {_duration_days:.0f} days ({_duration_months:.1f} months) |
+        """
+    )
+    return
+
+
+# ── 10. Faller Demographics Profile ──────────────────────────────────
+@app.cell
+def _(df_analytic, mo, np, pl):
+    _fallers = df_analytic.filter(pl.col("fall_flag") == 1)
+    _n_fallers = _fallers.height
+
+    _age = _fallers["age"].to_numpy()
+    _age_mean = np.mean(_age)
+    _age_sd = np.std(_age, ddof=1)
+    _age_med = np.median(_age)
+    _age_q1, _age_q3 = np.percentile(_age, [25, 75])
+
+    _gender_vc = (
+        _fallers.group_by("gender").agg(pl.len().alias("n"))
+        .with_columns((pl.col("n") / _n_fallers * 100).round(1).alias("pct"))
+        .sort("n", descending=True)
+    )
+    _race_vc = (
+        _fallers.group_by("race").agg(pl.len().alias("n"))
+        .with_columns((pl.col("n") / _n_fallers * 100).round(1).alias("pct"))
+        .sort("n", descending=True)
+    )
+    _eth_vc = (
+        _fallers.group_by("ethnicity").agg(pl.len().alias("n"))
+        .with_columns((pl.col("n") / _n_fallers * 100).round(1).alias("pct"))
+        .sort("n", descending=True)
+    )
+
+    mo.vstack([
+        mo.md(
+            f"""
+            ## Faller Demographics Profile (n = {_n_fallers:,})
+
+            **Age**: mean {_age_mean:.1f} ± {_age_sd:.1f}, median {_age_med:.0f} [{_age_q1:.0f}–{_age_q3:.0f}]
+            """
+        ),
+        mo.md("### Gender"),
+        mo.ui.table(_gender_vc),
+        mo.md("### Race"),
+        mo.ui.table(_race_vc),
+        mo.md("### Ethnicity"),
+        mo.ui.table(_eth_vc),
+    ])
+    return
+
+
+# ── 11. Where Falls Occur ─────────────────────────────────────────────
+@app.cell
+def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
+    _fall_units = (
+        df_analytic.filter(pl.col("unit_fall_occurred").is_not_null())
+        .group_by("unit_fall_occurred")
+        .agg(pl.len().alias("n_falls"))
+        .sort("n_falls", descending=True)
+        .head(15)
+    )
+
+    mo.vstack([
+        mo.md("## Where Falls Occur (Top 15 Units)"),
+        mo.ui.table(_fall_units),
+    ])
+
+    _units = _fall_units["unit_fall_occurred"].to_list()[::-1]
+    _counts = _fall_units["n_falls"].to_list()[::-1]
+
+    _fig, _ax = plt.subplots(figsize=FIG_DOUBLE_COL)
+    _ax.barh(_units, _counts, color="#4A7C8A", edgecolor="white", linewidth=0.3)
+    _ax.set_xlabel("Number of falls")
+    _ax.set_title("Top 15 units by fall count", fontweight="bold")
+    for _i, _v in enumerate(_counts):
+        _ax.text(_v + max(_counts) * 0.01, _i, str(_v), va="center", fontsize=8)
+    _fig.tight_layout()
+    save_figure(_fig, "nb01_fall_locations")
+    return
+
+
+# ── 12. Fall Rate by Admitting Department ─────────────────────────────
+@app.cell
+def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
+    _dept_stats = (
+        df_analytic.group_by("admitting_department")
+        .agg([
+            pl.len().alias("n_encounters"),
+            pl.col("fall_flag").sum().alias("n_falls"),
+        ])
+        .with_columns(
+            (pl.col("n_falls") / pl.col("n_encounters") * 100).round(2).alias("fall_rate_pct")
+        )
+        .sort("n_encounters", descending=True)
+        .head(15)
+    )
+
+    mo.vstack([
+        mo.md("## Fall Rate by Admitting Department (Top 15 by Volume)"),
+        mo.ui.table(_dept_stats),
+    ])
+
+    _sorted = _dept_stats.sort("fall_rate_pct", descending=False)
+    _depts = _sorted["admitting_department"].to_list()
+    _rates = _sorted["fall_rate_pct"].to_list()
+
+    _fig, _ax = plt.subplots(figsize=FIG_DOUBLE_COL)
+    _ax.barh(_depts, _rates, color="#4A7C8A", edgecolor="white", linewidth=0.3)
+    _ax.set_xlabel("Fall rate, %")
+    _ax.set_title("Fall rate by admitting department (top 15 by volume)", fontweight="bold")
+    for _i, _v in enumerate(_rates):
+        _ax.text(_v + max(_rates) * 0.01, _i, f"{_v:.1f}%", va="center", fontsize=8)
+    _fig.tight_layout()
+    save_figure(_fig, "nb01_department_fall_rates")
+    return
+
+
+# ── 13. Temporal Patterns ─────────────────────────────────────────────
+@app.cell
+def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
+    _with_dt = df_analytic.filter(pl.col("fall_datetime").is_not_null())
+    _n_with_dt = _with_dt.height
+    _n_without_dt = df_analytic.filter(
+        (pl.col("fall_flag") == 1) & pl.col("fall_datetime").is_null()
+    ).height
+
+    _hours = _with_dt["fall_datetime"].dt.hour().to_numpy()
+    _weekdays = _with_dt["fall_datetime"].dt.weekday().to_numpy()  # 0=Mon, 6=Sun
+    _day_labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+    _fig, (_ax1, _ax2) = plt.subplots(1, 2, figsize=FIG_DOUBLE_COL)
+
+    # Panel A: hour of day
+    _ax1.hist(_hours, bins=range(25), color="#4A7C8A", edgecolor="white", linewidth=0.3)
+    _ax1.set_xlabel("Hour of day")
+    _ax1.set_ylabel("Number of falls")
+    _ax1.set_title("A. Falls by hour of day", fontweight="bold")
+    _ax1.set_xticks(range(0, 24, 4))
+
+    # Panel B: day of week
+    _day_counts = [int((_weekdays == d).sum()) for d in range(7)]
+    _ax2.bar(_day_labels, _day_counts, color="#4A7C8A", edgecolor="white", linewidth=0.3)
+    _ax2.set_xlabel("Day of week")
+    _ax2.set_ylabel("Number of falls")
+    _ax2.set_title("B. Falls by day of week", fontweight="bold")
+
+    _fig.tight_layout()
+    save_figure(_fig, "nb01_fall_temporal")
+
+    mo.md(
+        f"**Temporal patterns**: {_n_with_dt:,} falls with valid datetime; "
+        f"{_n_without_dt:,} fallers excluded (missing `fall_datetime`)."
+    )
+    return
+
+
+# ── 14. Admission-to-Fall Timing + LOS Comparison ────────────────────
+@app.cell
+def _(FIG_SINGLE_COL, df_analytic, mo, np, pl, plt, save_figure):
+    # Admission-to-fall timing
+    _fallers_dt = df_analytic.filter(
+        (pl.col("fall_flag") == 1) & pl.col("fall_datetime").is_not_null()
+    ).with_columns(
+        ((pl.col("fall_datetime") - pl.col("admission_date")).dt.total_seconds() / 3600)
+        .alias("hours_to_fall")
+    ).filter(pl.col("hours_to_fall") > 0)
+
+    _h2f = _fallers_dt["hours_to_fall"].to_numpy()
+    _med = np.median(_h2f)
+    _q1, _q3 = np.percentile(_h2f, [25, 75])
+
+    _fig1, _ax1 = plt.subplots(figsize=FIG_SINGLE_COL)
+    _ax1.hist(_h2f, bins=50, color="#4A7C8A", edgecolor="white", linewidth=0.3)
+    _ax1.axvline(_med, color="#B2182B", linestyle="--", linewidth=1.0)
+    _ax1.set_xlabel("Hours from admission to fall")
+    _ax1.set_ylabel("Number of falls")
+    _ax1.set_title("Admission-to-fall timing", fontweight="bold")
+    _ax1.text(
+        0.97, 0.95,
+        f"Median: {_med:.0f}h [{_q1:.0f}–{_q3:.0f}]",
+        transform=_ax1.transAxes, ha="right", va="top", fontsize=8,
+        bbox={"boxstyle": "round,pad=0.3", "facecolor": "white", "edgecolor": "0.8"},
+    )
+    _fig1.tight_layout()
+    save_figure(_fig1, "nb01_admission_to_fall")
+
+    # LOS comparison
+    _los_fallers = df_analytic.filter(pl.col("fall_flag") == 1)["los_days"].to_numpy()
+    _los_nonfallers = df_analytic.filter(pl.col("fall_flag") == 0)["los_days"].to_numpy()
+    _cap = np.percentile(np.concatenate([_los_fallers, _los_nonfallers]), 95)
+
+    _fig2, _ax2 = plt.subplots(figsize=FIG_SINGLE_COL)
+    _bp = _ax2.boxplot(
+        [_los_nonfallers[_los_nonfallers <= _cap], _los_fallers[_los_fallers <= _cap]],
+        labels=["Non-fallers", "Fallers"],
+        widths=0.5,
+        patch_artist=True,
+        medianprops={"color": "#B2182B", "linewidth": 1.0},
+    )
+    _bp["boxes"][0].set_facecolor("#D1E5F0")
+    _bp["boxes"][1].set_facecolor("#FDDBC7")
+    _ax2.set_ylabel("Length of stay, days")
+    _ax2.set_title("LOS by fall status (capped at 95th pct)", fontweight="bold")
+    _fig2.tight_layout()
+    save_figure(_fig2, "nb01_los_comparison")
+
+    mo.md(
+        f"**Admission-to-fall timing**: median {_med:.0f}h [{_q1:.0f}–{_q3:.0f}], "
+        f"n = {len(_h2f):,} (positive lead time).\n\n"
+        f"**LOS**: fallers median {np.median(_los_fallers):.1f}d vs "
+        f"non-fallers {np.median(_los_nonfallers):.1f}d."
+    )
+    return
+
+
+# ── 15. Write analytic parquet ───────────────────────────────────────
 @app.cell
 def _(Path, df_analytic, mo):
     _out = Path("data/processed")

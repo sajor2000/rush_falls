@@ -300,7 +300,12 @@ Mapped to Wong et al. JAMA Network Open 2026:
 | **eTable 2** | Fairness audit: stratified by race/ethnicity | `09_fairness_audit.py` |
 | **eTable 3** | Fairness audit: stratified by unit type | `09_fairness_audit.py` |
 | **eTable 4** | Sensitivity analyses summary (all score timings) | `10_sensitivity_analyses.py` |
+| **eTable 5** | Calibration summary (CITL, slope, ICI) | `05_calibration.py` |
+| **eTable 6** | Threshold analysis: optimal cutpoints by method | `07_threshold_analysis.py` |
+| **eTable 7** | DCA net benefit at selected threshold probabilities | `06_decision_curve.py` |
+| **eTable 8** | Fairness audit: stratified by gender | `09_fairness_audit.py` |
 | **Notebook 12** | Aggregate report — collects key results from all notebooks | `12_report.py` |
+| **Notebook 13** | Master report — full pipeline reproduction in one notebook | `13_master_report.py` |
 
 ---
 
@@ -519,7 +524,8 @@ rushfalla/
 │   ├── 09_fairness_audit.py          # Stratified performance (eTables 1-3)
 │   ├── 10_sensitivity_analyses.py    # All sensitivity runs (eTable 4)
 │   ├── 11_dot_plot.py                # Model comparison dot plot (Figure 2)
-│   └── 12_report.py                  # Aggregate report — collects all results
+│   ├── 12_report.py                  # Aggregate report — collects all results
+│   └── 13_master_report.py           # Master report — full pipeline in one notebook
 ├── utils/
 │   ├── __init__.py
 │   ├── metrics.py                     # DeLong, bootstrap, NRI/IDI, value-optimizing threshold
@@ -564,6 +570,7 @@ make edit NB=notebooks/11_dot_plot.py
 
 # Phase 5: Aggregation
 make edit NB=notebooks/12_report.py
+make edit NB=notebooks/13_master_report.py
 
 # Batch run all (CI/reproducibility)
 make run-all

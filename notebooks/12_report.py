@@ -200,6 +200,18 @@ def _(Path, mo):
     return
 
 
+# ── eFigure 5: Score distributions ──────────────────────────────
+@app.cell
+def _(Path, mo):
+    efig5_path = Path("outputs/figures/efigure5_score_distributions.png")
+    mo.stop(not efig5_path.exists(), mo.md("*eFigure 5 not found — run `07_threshold_analysis.py` first.*"))
+    mo.vstack([
+        mo.md("## eFigure 5 — Score Distributions With Flag Rate Annotations"),
+        mo.image(src=efig5_path, width=700),
+    ])
+    return
+
+
 # ── eTable 1: Age ────────────────────────────────────────────────
 @app.cell
 def _(Path, mo, pl):
@@ -369,12 +381,15 @@ def _(Path, mo):
         "etable1_age.csv",
         "etable2_race.csv",
         "etable3_unit.csv",
-        "etable4_gender.csv",
         "etable4_sensitivity.csv",
+        "etable8_gender.csv",
         "calibration_summary.csv",
+        "dca_threshold_ranges.json",
         "efigure4_cohort_flow_counts.csv",
         "figure3_dca_net_benefit.csv",
         "threshold_summary.csv",
+        "flag_rate_summary.csv",
+        "sensitivity_key_results.json",
     ]
 
     fig_status = []
