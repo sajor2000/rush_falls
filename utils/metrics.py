@@ -254,37 +254,54 @@ def value_optimizing_threshold(
     if threshold_grid is None:
         threshold_grid = np.arange(0.001, 0.20, 0.001)
 
-    best_nmb = -np.inf
-    best_threshold = 0.5
-    nmb_by_threshold: list[dict[str, float]] = []
     n = len(y_true)
+    total_pos = int(np.sum(y_true == 1))
+    total_neg = n - total_pos
 
-    for t in threshold_grid:
-        pred_pos = y_pred_prob >= t
-        tp = np.sum(pred_pos & (y_true == 1))
-        fp = np.sum(pred_pos & (y_true == 0))
-        tn = np.sum(~pred_pos & (y_true == 0))
-        fn = np.sum(~pred_pos & (y_true == 1))
+    # Sort scores once, then use cumulative sums for all thresholds
+    sort_idx = np.argsort(y_pred_prob)
+    sorted_y = y_true[sort_idx]
+    sorted_p = y_pred_prob[sort_idx]
 
-        eff = cp["effectiveness_alpha"] / (
-            cp["effectiveness_alpha"] + cp["effectiveness_beta"]
-        )
-        cost_fall = cp["cost_fall_mean"]
-        cost_int = cp["cost_intervention_mean"]
-        qaly = cp["qaly_loss_mean"]
-        wtp = cp["wtp"]
+    # Cumulative positives from right: cum_pos[i] = number of positives at index >= i
+    cum_pos_rev = np.cumsum(sorted_y[::-1])[::-1]
+    # Pad with 0 for the case where threshold > all scores
+    cum_pos_padded = np.append(cum_pos_rev, 0)
+    cum_total_padded = np.append(np.arange(n, 0, -1), 0)
 
-        nmb_tp = -(cost_int + cost_fall * (1 - eff) + qaly * (1 - eff) * wtp)
-        nmb_fp = -cost_int
-        nmb_tn = 0.0
-        nmb_fn = -(cost_fall + qaly * wtp)
+    # Insertion points: number of scores < each threshold
+    positions = np.searchsorted(sorted_p, threshold_grid, side="left")
+    positions = np.clip(positions, 0, n)
 
-        total_nmb = (tp * nmb_tp + fp * nmb_fp + tn * nmb_tn + fn * nmb_fn) / n
-        nmb_by_threshold.append({"threshold": float(t), "nmb": float(total_nmb)})
+    tp = cum_pos_padded[positions]
+    total_above = cum_total_padded[positions]
+    fp = total_above - tp
+    fn = total_pos - tp
+    tn = total_neg - fp
 
-        if total_nmb > best_nmb:
-            best_nmb = float(total_nmb)
-            best_threshold = float(t)
+    # Compute NMB per-threshold weights (constant across thresholds)
+    eff = cp["effectiveness_alpha"] / (
+        cp["effectiveness_alpha"] + cp["effectiveness_beta"]
+    )
+    cost_fall = cp["cost_fall_mean"]
+    cost_int = cp["cost_intervention_mean"]
+    qaly = cp["qaly_loss_mean"]
+    wtp = cp["wtp"]
+
+    nmb_tp = -(cost_int + cost_fall * (1 - eff) + qaly * (1 - eff) * wtp)
+    nmb_fp = -cost_int
+    nmb_fn = -(cost_fall + qaly * wtp)
+
+    total_nmb = (tp * nmb_tp + fp * nmb_fp + fn * nmb_fn) / n
+
+    best_idx = np.argmax(total_nmb)
+    best_threshold = float(threshold_grid[best_idx])
+    best_nmb = float(total_nmb[best_idx])
+
+    nmb_by_threshold: list[dict[str, float]] = [
+        {"threshold": float(t), "nmb": float(v)}
+        for t, v in zip(threshold_grid, total_nmb, strict=True)
+    ]
 
     return best_threshold, best_nmb, nmb_by_threshold
 

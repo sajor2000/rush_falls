@@ -30,7 +30,6 @@ import numpy as np
 from scipy import stats
 from sklearn.metrics import roc_auc_score
 
-
 # ---------------------------------------------------------------------------
 # Data classes for structured results
 # ---------------------------------------------------------------------------
@@ -127,20 +126,22 @@ def _fast_delong(y_true: np.ndarray, y_score: np.ndarray) -> tuple[float, np.nda
     sum_pos_ranks = np.sum(midranks[pos_idx])
     auc = (sum_pos_ranks - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg)
 
-    # Structural components for each positive observation
-    # For each positive, compute fraction of negatives with lower score
+    # Structural components via searchsorted (O(n log n) instead of O(n_pos * n_neg))
     pos_scores = y_score[pos_idx]
     neg_scores = y_score[neg_idx]
 
     # V10: for each positive, proportion of negatives it beats
-    v10 = np.zeros(n_pos)
-    for i, ps in enumerate(pos_scores):
-        v10[i] = np.mean((neg_scores < ps).astype(float) + 0.5 * (neg_scores == ps).astype(float))
+    neg_sorted = np.sort(neg_scores)
+    below = np.searchsorted(neg_sorted, pos_scores, side="left")
+    equal = np.searchsorted(neg_sorted, pos_scores, side="right") - below
+    v10 = (below + 0.5 * equal) / n_neg
 
     # V01: for each negative, proportion of positives that beat it
-    v01 = np.zeros(n_neg)
-    for j, ns in enumerate(neg_scores):
-        v01[j] = np.mean((pos_scores > ns).astype(float) + 0.5 * (pos_scores == ns).astype(float))
+    pos_sorted = np.sort(pos_scores)
+    below_or_eq = np.searchsorted(pos_sorted, neg_scores, side="right")
+    above = n_pos - below_or_eq
+    equal_01 = below_or_eq - np.searchsorted(pos_sorted, neg_scores, side="left")
+    v01 = (above + 0.5 * equal_01) / n_pos
 
     return auc, v10, v01
 
@@ -282,29 +283,33 @@ def cluster_bootstrap_auroc_comparison(
     cluster_ids = np.asarray(cluster_ids)
 
     n_obs = len(y_true)
-    unique_clusters = np.unique(cluster_ids)
+
+    # Pre-compute cluster membership via sorting (vectorized, O(n log n))
+    sort_order = np.argsort(cluster_ids)
+    sorted_ids = cluster_ids[sort_order]
+    unique_clusters, starts, counts = np.unique(
+        sorted_ids, return_index=True, return_counts=True
+    )
     n_clusters = len(unique_clusters)
 
-    # Pre-compute cluster membership for speed
-    cluster_to_idx: dict[object, np.ndarray] = {}
-    for cid in unique_clusters:
-        cluster_to_idx[cid] = np.where(cluster_ids == cid)[0]
+    # Pre-build list of encounter index arrays per cluster (fast, one pass)
+    cluster_enc_idx = [sort_order[starts[i]:starts[i] + counts[i]] for i in range(n_clusters)]
 
-    # Determine cluster-level outcome for stratified resampling
+    # Map each encounter to its cluster integer index (always needed)
+    inv = np.empty(n_obs, dtype=int)
+    for ci in range(n_clusters):
+        inv[cluster_enc_idx[ci]] = ci
+
+    # Determine cluster-level outcome for stratified resampling (vectorized)
     if stratify_outcome:
-        # A cluster is a "fall cluster" if ANY of its encounters had a fall
-        cluster_has_fall: dict[object, bool] = {}
-        for cid in unique_clusters:
-            idx = cluster_to_idx[cid]
-            cluster_has_fall[cid] = np.any(y_true[idx] == 1)
-
-        fall_clusters = np.array([c for c in unique_clusters if cluster_has_fall[c]])
-        nofall_clusters = np.array([c for c in unique_clusters if not cluster_has_fall[c]])
-        n_fall_clusters = len(fall_clusters)
-        n_nofall_clusters = len(nofall_clusters)
+        cluster_fall_flag = np.bincount(inv, weights=y_true, minlength=n_clusters) > 0
+        fall_cluster_idx = np.where(cluster_fall_flag)[0]
+        nofall_cluster_idx = np.where(~cluster_fall_flag)[0]
+        n_fall_clusters = len(fall_cluster_idx)
+        n_nofall_clusters = len(nofall_cluster_idx)
     else:
-        fall_clusters = None
-        nofall_clusters = None
+        fall_cluster_idx = None
+        nofall_cluster_idx = None
 
     # Observed statistic
     auc_a_obs = roc_auc_score(y_true, scores_a)
@@ -318,20 +323,19 @@ def cluster_bootstrap_auroc_comparison(
     n_failed = 0
 
     for b in range(n_bootstrap):
-        # Resample clusters
-        if stratify_outcome and fall_clusters is not None and nofall_clusters is not None:
-            sampled_fall = rng.choice(fall_clusters, size=n_fall_clusters, replace=True)
-            sampled_nofall = rng.choice(nofall_clusters, size=n_nofall_clusters, replace=True)
-            sampled_clusters = np.concatenate([sampled_fall, sampled_nofall])
+        # Resample cluster integer indices
+        if stratify_outcome and fall_cluster_idx is not None and nofall_cluster_idx is not None:
+            sampled_fall = rng.choice(fall_cluster_idx, size=n_fall_clusters, replace=True)
+            sampled_nofall = rng.choice(nofall_cluster_idx, size=n_nofall_clusters, replace=True)
+            sampled = np.concatenate([sampled_fall, sampled_nofall])
         else:
-            sampled_clusters = rng.choice(unique_clusters, size=n_clusters, replace=True)
+            sampled = rng.choice(n_clusters, size=n_clusters, replace=True)
 
-        # Build bootstrap sample: include ALL encounters for each sampled cluster.
-        # If a cluster is sampled multiple times, its encounters appear multiple times.
-        boot_indices = []
-        for cid in sampled_clusters:
-            boot_indices.append(cluster_to_idx[cid])
-        boot_indices = np.concatenate(boot_indices)
+        # Build bootstrap sample using vectorized np.repeat
+        sample_counts = np.bincount(sampled, minlength=n_clusters)
+        # For each encounter, repeat it sample_counts[its_cluster] times
+        enc_repeat = sample_counts[inv]
+        boot_indices = np.repeat(np.arange(n_obs), enc_repeat)
 
         y_boot = y_true[boot_indices]
         sa_boot = scores_a[boot_indices]
@@ -379,8 +383,8 @@ def cluster_bootstrap_auroc_comparison(
             scores_a,
             scores_b,
             cluster_ids,
-            cluster_to_idx,
-            unique_clusters,
+            inv,
+            n_clusters,
             alpha,
         )
     else:
@@ -428,21 +432,34 @@ def cluster_bootstrap_auroc_single(
     scores = np.asarray(scores, dtype=float)
     cluster_ids = np.asarray(cluster_ids)
 
-    unique_clusters = np.unique(cluster_ids)
+    n_obs = len(y_true)
+
+    # Pre-compute cluster membership via sorting (vectorized, O(n log n))
+    sort_order = np.argsort(cluster_ids)
+    sorted_ids = cluster_ids[sort_order]
+    unique_clusters, starts, counts = np.unique(
+        sorted_ids, return_index=True, return_counts=True
+    )
     n_clusters = len(unique_clusters)
 
-    cluster_to_idx: dict[object, np.ndarray] = {}
-    for cid in unique_clusters:
-        cluster_to_idx[cid] = np.where(cluster_ids == cid)[0]
+    # Map each encounter to its cluster integer index
+    inv = np.empty(n_obs, dtype=int)
+    for ci in range(n_clusters):
+        inv[sort_order[starts[ci]:starts[ci] + counts[ci]]] = ci
 
     auc_obs = roc_auc_score(y_true, scores)
 
     boot_aucs = np.zeros(n_bootstrap)
     for b in range(n_bootstrap):
-        sampled = rng.choice(unique_clusters, size=n_clusters, replace=True)
-        idx = np.concatenate([cluster_to_idx[c] for c in sampled])
-        y_b = y_true[idx]
-        s_b = scores[idx]
+        sampled = rng.choice(n_clusters, size=n_clusters, replace=True)
+
+        # Build bootstrap sample using vectorized np.repeat
+        sample_counts = np.bincount(sampled, minlength=n_clusters)
+        enc_repeat = sample_counts[inv]
+        boot_indices = np.repeat(np.arange(n_obs), enc_repeat)
+
+        y_b = y_true[boot_indices]
+        s_b = scores[boot_indices]
         if len(np.unique(y_b)) < 2:
             boot_aucs[b] = np.nan
             continue
@@ -468,8 +485,8 @@ def _bca_interval(
     scores_a: np.ndarray,
     scores_b: np.ndarray,
     cluster_ids: np.ndarray,
-    cluster_to_idx: dict,
-    unique_clusters: np.ndarray,
+    inv: np.ndarray,
+    n_clusters: int,
     alpha: float,
 ) -> tuple[float, float]:
     """Bias-corrected and accelerated (BCa) bootstrap interval.
@@ -478,13 +495,11 @@ def _bca_interval(
     parameter. For very large numbers of clusters, falls back to percentile.
     """
     n_boot = len(boot_deltas)
-    n_clusters = len(unique_clusters)
 
     # Bias correction factor (z0)
-    prop_below = np.mean(boot_deltas < delta_obs)
-    # Avoid infinities at boundaries
+    prop_below = float(np.mean(boot_deltas < delta_obs))
     prop_below = np.clip(prop_below, 1e-6, 1 - 1e-6)
-    z0 = stats.norm.ppf(prop_below)
+    z0 = float(stats.norm.ppf(prop_below))
 
     # Acceleration factor via jackknife (leave-one-cluster-out)
     # For computational efficiency, limit jackknife to max 2000 clusters
@@ -494,14 +509,14 @@ def _bca_interval(
             "using percentile interval.",
             stacklevel=2,
         )
-        ci_lo = np.percentile(boot_deltas, 100 * alpha / 2)
-        ci_hi = np.percentile(boot_deltas, 100 * (1 - alpha / 2))
+        ci_lo = float(np.percentile(boot_deltas, 100 * alpha / 2))
+        ci_hi = float(np.percentile(boot_deltas, 100 * (1 - alpha / 2)))
         return ci_lo, ci_hi
 
     jack_deltas = np.zeros(n_clusters)
-    for i, cid in enumerate(unique_clusters):
-        # Leave out all encounters from cluster i
-        mask = cluster_ids != cid
+    for i in range(n_clusters):
+        # Leave out all encounters from cluster i (vectorized mask)
+        mask = inv != i
         y_jack = y_true[mask]
         sa_jack = scores_a[mask]
         sb_jack = scores_b[mask]
@@ -588,67 +603,60 @@ def estimate_design_effect(
     scores = np.asarray(scores, dtype=float)
     cluster_ids = np.asarray(cluster_ids)
 
-    unique_clusters = np.unique(cluster_ids)
+    unique_clusters, inverse, cluster_sizes = np.unique(
+        cluster_ids, return_inverse=True, return_counts=True
+    )
     n_clusters = len(unique_clusters)
     n_obs = len(y_true)
-
-    # Cluster sizes
-    cluster_sizes = np.array([np.sum(cluster_ids == c) for c in unique_clusters])
     avg_cluster_size = np.mean(cluster_sizes)
 
-    # Separate by outcome (at cluster level)
-    fall_clusters = []
-    nofall_clusters = []
-    for cid in unique_clusters:
-        idx = np.where(cluster_ids == cid)[0]
-        if np.any(y_true[idx] == 1):
-            fall_clusters.append(len(idx))
-        else:
-            nofall_clusters.append(len(idx))
+    # Determine which clusters have at least one fall (vectorized)
+    cluster_has_fall = np.bincount(inverse, weights=y_true, minlength=n_clusters) > 0
+    fall_cluster_sizes = cluster_sizes[cluster_has_fall]
+    nofall_cluster_sizes = cluster_sizes[~cluster_has_fall]
 
-    avg_cs_falls = np.mean(fall_clusters) if fall_clusters else 1.0
-    avg_cs_nonfalls = np.mean(nofall_clusters) if nofall_clusters else 1.0
+    avg_cs_falls = float(np.mean(fall_cluster_sizes)) if len(fall_cluster_sizes) > 0 else 1.0
+    avg_cs_nonfalls = float(np.mean(nofall_cluster_sizes)) if len(nofall_cluster_sizes) > 0 else 1.0
 
-    # Estimate ICC for scores (using one-way random effects ANOVA approach)
+    # Estimate ICC for scores (one-way random effects ANOVA)
     # Only meaningful for clusters with >1 observation
-    multi_clusters = [cid for cid in unique_clusters if np.sum(cluster_ids == cid) > 1]
+    multi_mask = cluster_sizes > 1
+    n_multi = int(np.sum(multi_mask))
 
     icc = None
-    if len(multi_clusters) >= 5:
-        # One-way ANOVA ICC: ICC = (MSB - MSW) / (MSB + (n0-1)*MSW)
-        # where n0 is an adjusted average cluster size
-        groups = []
-        group_means = []
+    if n_multi >= 5:
+        # Vectorized ANOVA: compute cluster means, then SS_between and SS_within
+        # cluster_mean[i] = mean of scores in cluster i
+        cluster_sum = np.bincount(inverse, weights=scores, minlength=n_clusters)
+        cluster_mean = cluster_sum / cluster_sizes
         grand_mean = np.mean(scores)
-        ss_between = 0.0
-        ss_within = 0.0
-        total_n = 0
-        k = 0
 
-        for cid in multi_clusters:
-            idx = np.where(cluster_ids == cid)[0]
-            g = scores[idx]
-            ni = len(g)
-            gm = np.mean(g)
-            ss_between += ni * (gm - grand_mean) ** 2
-            ss_within += np.sum((g - gm) ** 2)
-            total_n += ni
-            k += 1
-            groups.append(g)
-            group_means.append(gm)
+        # Restrict to multi-observation clusters
+        multi_idx = np.where(multi_mask)[0]
+        enc_in_multi = np.isin(inverse, multi_idx)
+
+        # Map encounter -> its cluster mean
+        enc_cluster_mean = cluster_mean[inverse]
+
+        ss_between = float(np.sum(
+            cluster_sizes[multi_idx] * (cluster_mean[multi_idx] - grand_mean) ** 2
+        ))
+        ss_within = float(np.sum((scores[enc_in_multi] - enc_cluster_mean[enc_in_multi]) ** 2))
+
+        k = len(multi_idx)
+        total_n = int(np.sum(cluster_sizes[multi_idx]))
 
         if k > 1 and total_n > k:
             msb = ss_between / (k - 1)
             msw = ss_within / (total_n - k)
 
-            # Adjusted n0 for unequal cluster sizes
-            sum_ni = sum(len(g) for g in groups)
-            sum_ni2 = sum(len(g) ** 2 for g in groups)
+            sum_ni = float(np.sum(cluster_sizes[multi_idx]))
+            sum_ni2 = float(np.sum(cluster_sizes[multi_idx] ** 2))
             n0 = (sum_ni - sum_ni2 / sum_ni) / (k - 1)
 
             if n0 > 0 and (msb + (n0 - 1) * msw) > 0:
                 icc = (msb - msw) / (msb + (n0 - 1) * msw)
-                icc = max(0.0, icc)  # ICC cannot be negative for our purposes
+                icc = max(0.0, icc)
 
     # Design effects
     rho = icc if icc is not None else 0.0
@@ -663,7 +671,7 @@ def estimate_design_effect(
         "avg_cluster_size": round(avg_cluster_size, 3),
         "avg_cluster_size_falls": round(avg_cs_falls, 3),
         "avg_cluster_size_nonfalls": round(avg_cs_nonfalls, 3),
-        "n_multi_obs_clusters": len(multi_clusters),
+        "n_multi_obs_clusters": n_multi,
         "icc_estimate": round(rho, 4) if icc is not None else None,
         "deff_overall": round(deff_overall, 4),
         "deff_falls": round(deff_falls, 4),
@@ -714,15 +722,8 @@ def first_encounter_comparison(
         scores_b = scores_b[sort_idx]
         cluster_ids = cluster_ids[sort_idx]
 
-    # Keep first occurrence of each cluster_id
-    seen = set()
-    keep_idx = []
-    for i, cid in enumerate(cluster_ids):
-        if cid not in seen:
-            seen.add(cid)
-            keep_idx.append(i)
-
-    keep_idx = np.array(keep_idx)
+    # Keep first occurrence of each cluster_id (vectorized)
+    _, keep_idx = np.unique(cluster_ids, return_index=True)
     y_sub = y_true[keep_idx]
     sa_sub = scores_a[keep_idx]
     sb_sub = scores_b[keep_idx]
@@ -771,7 +772,7 @@ def run_sensitivity_comparison(
     -------
     SensitivityResult containing all three comparisons and design-effect info
     """
-    print(f"=== AUROC Clustering Sensitivity Analysis ===")
+    print("=== AUROC Clustering Sensitivity Analysis ===")
     print(f"Comparing: {label_a} vs {label_b}")
     print(f"N encounters: {len(y_true):,}")
     print(f"N events: {np.sum(y_true):,}")
@@ -917,9 +918,9 @@ def gee_discrimination_check(
     """
     try:
         import statsmodels.api as sm
-        from statsmodels.genmod.generalized_estimating_equations import GEE
         from statsmodels.genmod.cov_struct import Exchangeable
         from statsmodels.genmod.families import Binomial
+        from statsmodels.genmod.generalized_estimating_equations import GEE
     except ImportError:
         return {"error": "statsmodels not installed"}
 
