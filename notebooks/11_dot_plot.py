@@ -1,55 +1,60 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _():
-    import marimo as mo
-    import polars as pl
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import matplotlib
     from pathlib import Path
 
-    return Path, matplotlib, mo, np, pl, plt
+    import marimo as mo
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import polars as pl
+
+    return Path, matplotlib, mo, pl, plt
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # 11 — Figure 2: AUROC Comparison Dot Plot
+    mo.md("""
+    # 11 — Figure 2: AUROC Comparison Dot Plot
 
-        **Purpose**: Visualize Epic PMFRS vs Morse Fall Scale discrimination across
-        all score timing strategies as a publication-ready dot plot (Figure 2).
+    **Purpose**: Visualize Epic PMFRS vs Morse Fall Scale discrimination across
+    all score timing strategies as a publication-ready dot plot (Figure 2).
 
-        **Design**:
-        - Y-axis: Score timing strategy (Admission, Before fall, Maximum, Mean)
-        - X-axis: AUROC (0.5 to 1.0)
-        - Two dots per row: blue circle (Epic PMFRS), red diamond (Morse Fall Scale)
-        - Horizontal error bars: 95% CI via DeLong variance
-        - Vertical dashed reference line at AUROC = 0.5 (no discrimination)
-        - JAMA style, full-width (7.0 × 4.5 in)
+    **Design**:
+    - Y-axis: Score timing strategy (Admission, Before fall, Maximum, Mean)
+    - X-axis: AUROC (0.5 to 1.0)
+    - Two dots per row: blue circle (Epic PMFRS), red diamond (Morse Fall Scale)
+    - Horizontal error bars: 95% CI via DeLong variance
+    - Vertical dashed reference line at AUROC = 0.5 (no discrimination)
+    - JAMA style, full-width (7.0 × 4.5 in)
 
-        **Method**: Re-computed directly from `analytic.parquet` (self-contained).
-        DeLong 95% CIs (Sun & Xu 2014).
-        """
-    )
+    **Method**: Re-computed directly from `analytic.parquet` (self-contained).
+    DeLong 95% CIs (Sun & Xu 2014).
+    """)
     return
 
 
 @app.cell
 def _():
-    from utils.constants import SCORE_TIMING, MODEL_LABELS
+    from utils.constants import MODEL_LABELS, SCORE_TIMING
     from utils.metrics import delong_ci
-    from utils.plotting import JAMA_STYLE, COLORS, FIG_DOUBLE_COL, save_figure
+    from utils.plotting import COLORS, FIG_DOUBLE_COL, JAMA_STYLE, save_figure
 
-    return COLORS, FIG_DOUBLE_COL, JAMA_STYLE, MODEL_LABELS, SCORE_TIMING, delong_ci, save_figure
+    return (
+        COLORS,
+        FIG_DOUBLE_COL,
+        JAMA_STYLE,
+        MODEL_LABELS,
+        SCORE_TIMING,
+        delong_ci,
+        save_figure,
+    )
 
 
-# ── 1. Load data ────────────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     df = pl.read_parquet(Path("data/processed/analytic.parquet"))
@@ -69,7 +74,6 @@ def _(df, mo):
     return
 
 
-# ── 2. Compute AUROC + DeLong CIs for each timing ───────────────────
 @app.cell
 def _(SCORE_TIMING, delong_ci, df, mo, pl):
     # Human-readable timing labels (ordered for display, bottom → top)
@@ -156,7 +160,6 @@ def _(SCORE_TIMING, delong_ci, df, mo, pl):
     return (auroc_results,)
 
 
-# ── 3. Build Figure 2 ───────────────────────────────────────────────
 @app.cell
 def _(
     COLORS,
@@ -278,20 +281,19 @@ def _(
         )
 
         fig2.text(
-            0.5, -0.20,
+            0.5, -0.22,
             "Figure 2. Model discrimination across score timing strategies",
             ha="center", va="top", fontsize=10, fontweight="bold",
         )
 
-        fig2.tight_layout(rect=[0, 0.05, 0.85, 1.0])
+        fig2.subplots_adjust(left=0.12, right=0.78, bottom=0.18, top=0.95)
 
-        save_figure(fig2, "figure2_dot_plot")
+        save_figure(fig2, "figure2_dot_plot", bbox_inches=None, pad_inches=0.15)
 
     fig2
-    return (fig2,)
+    return
 
 
-# ── 4. Verify saved output ──────────────────────────────────────────
 @app.cell
 def _(Path, mo):
     _pdf = Path("outputs/figures/figure2_dot_plot.pdf")
@@ -316,7 +318,6 @@ def _(Path, mo):
     return
 
 
-# ── 5. Results narrative ────────────────────────────────────────────
 @app.cell
 def _(auroc_results, mo):
     _feasible = [r for r in auroc_results if r["feasible"]]

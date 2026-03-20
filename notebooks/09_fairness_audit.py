@@ -1,37 +1,35 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _():
-    import marimo as mo
-    import polars as pl
-    import numpy as np
     from pathlib import Path
 
-    return Path, mo, np, pl
+    import marimo as mo
+    import polars as pl
+
+    return Path, mo, pl
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # 09 — Fairness Audit: Stratified Performance (eTables 1–3, 8)
+    mo.md("""
+    # 09 — Fairness Audit: Stratified Performance (eTables 1–3, 8)
 
-        **Purpose**: Evaluate Epic PMFRS and Morse Fall Scale discrimination across
-        clinically meaningful subgroups to identify potential performance disparities.
+    **Purpose**: Evaluate Epic PMFRS and Morse Fall Scale discrimination across
+    clinically meaningful subgroups to identify potential performance disparities.
 
-        **Output**:
-        - eTable 1: AUROC by age group
-        - eTable 2: AUROC by race/ethnicity
-        - eTable 3: AUROC by unit type (top 10 departments)
-        - eTable 8: AUROC by gender
+    **Output**:
+    - eTable 1: AUROC by age group
+    - eTable 2: AUROC by race/ethnicity
+    - eTable 3: AUROC by unit type (top 10 departments)
+    - eTable 8: AUROC by gender
 
-        **Reference**: TRIPOD+AI Item 14e — subgroup performance across key demographics.
-        """
-    )
+    **Reference**: TRIPOD+AI Item 14e — subgroup performance across key demographics.
+    """)
     return
 
 
@@ -41,16 +39,14 @@ def _():
         AGE_BINS,
         AGE_LABELS,
         MIN_SUBGROUP_EVENTS,
-        RANDOM_SEED,
         N_BOOTSTRAP,
-        ALPHA,
+        RANDOM_SEED,
     )
     from utils.metrics import stratified_bootstrap
 
     return (
         AGE_BINS,
         AGE_LABELS,
-        ALPHA,
         MIN_SUBGROUP_EVENTS,
         N_BOOTSTRAP,
         RANDOM_SEED,
@@ -58,7 +54,6 @@ def _():
     )
 
 
-# ── 1. Load data ────────────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     df = pl.read_parquet(Path("data/processed/analytic.parquet"))
@@ -79,7 +74,6 @@ def _(df, mo):
     return
 
 
-# ── 2. Derive age groups ────────────────────────────────────────────
 @app.cell
 def _(AGE_BINS, AGE_LABELS, df, pl):
     # AGE_BINS = [18, 65, 80, inf]; AGE_LABELS = ["18-64","65-79","≥80"]
@@ -95,9 +89,8 @@ def _(AGE_BINS, AGE_LABELS, df, pl):
     return (df_with_age_grp,)
 
 
-# ── 3. Helper: compute AUROC with bootstrap CI for one subgroup ─────
 @app.cell
-def _(MIN_SUBGROUP_EVENTS, N_BOOTSTRAP, RANDOM_SEED, np, stratified_bootstrap):
+def _(MIN_SUBGROUP_EVENTS, N_BOOTSTRAP, RANDOM_SEED, stratified_bootstrap):
     from sklearn.metrics import roc_auc_score
 
     def compute_subgroup_row(
@@ -154,10 +147,9 @@ def _(MIN_SUBGROUP_EVENTS, N_BOOTSTRAP, RANDOM_SEED, np, stratified_bootstrap):
 
         return row
 
-    return compute_subgroup_row, roc_auc_score
+    return (compute_subgroup_row,)
 
 
-# ── 4. eTable 1: by age group ───────────────────────────────────────
 @app.cell
 def _(AGE_LABELS, compute_subgroup_row, df_with_age_grp, mo, pl):
     _rows_age = []
@@ -191,7 +183,7 @@ def _(etable1_df):
             columns=["Morse AUROC", "Morse 95% CI"],
         )
         .cols_label(
-            **{
+            cases={
                 "Subgroup": "Stratification",
                 "Category": "Subgroup",
                 "N encounters": "N encounters",
@@ -219,10 +211,9 @@ def _(etable1_df):
         )
     )
     _gt1
-    return (GT, loc, style)
+    return GT, loc, style
 
 
-# ── Export eTable 1 CSV ─────────────────────────────────────────────
 @app.cell
 def _(Path, etable1_df, mo):
     _out = Path("outputs/tables")
@@ -232,7 +223,6 @@ def _(Path, etable1_df, mo):
     return
 
 
-# ── 5. eTable 2: by race/ethnicity ─────────────────────────────────
 @app.cell
 def _(compute_subgroup_row, df, mo, pl):
     _race_cats = (
@@ -304,7 +294,6 @@ def _(GT, etable2_df, loc, style):
     return
 
 
-# ── Export eTable 2 CSV ─────────────────────────────────────────────
 @app.cell
 def _(Path, etable2_df, mo):
     etable2_df.write_csv(Path("outputs/tables/etable2_race.csv"))
@@ -312,7 +301,6 @@ def _(Path, etable2_df, mo):
     return
 
 
-# ── 6. eTable 3: by unit type (top 10 departments) ─────────────────
 @app.cell
 def _(compute_subgroup_row, df, mo, pl):
     # Get top 10 departments by encounter count
@@ -386,7 +374,6 @@ def _(GT, etable3_df, loc, style):
     return
 
 
-# ── Export eTable 3 CSV ─────────────────────────────────────────────
 @app.cell
 def _(Path, etable3_df, mo):
     etable3_df.write_csv(Path("outputs/tables/etable3_unit.csv"))
@@ -394,7 +381,6 @@ def _(Path, etable3_df, mo):
     return
 
 
-# ── 7. eTable 8: by gender ─────────────────────────────────────────
 @app.cell
 def _(compute_subgroup_row, df, mo, pl):
     _gender_cats = (
@@ -466,7 +452,6 @@ def _(GT, etable8_gender_df, loc, style):
     return
 
 
-# ── Export eTable 8 (gender) CSV ─────────────────────────────────────
 @app.cell
 def _(Path, etable8_gender_df, mo):
     etable8_gender_df.write_csv(Path("outputs/tables/etable8_gender.csv"))
@@ -474,7 +459,6 @@ def _(Path, etable8_gender_df, mo):
     return
 
 
-# ── 8. Summary note ─────────────────────────────────────────────────
 @app.cell
 def _(MIN_SUBGROUP_EVENTS, mo):
     mo.md(

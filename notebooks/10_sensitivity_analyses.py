@@ -1,49 +1,48 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _():
-    import marimo as mo
-    import polars as pl
-    import numpy as np
     from pathlib import Path
+
+    import marimo as mo
+    import numpy as np
+    import polars as pl
 
     return Path, mo, np, pl
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # 10 — Sensitivity Analyses (eTable 4)
+    mo.md("""
+    # 10 — Sensitivity Analyses (eTable 4)
 
-        **Purpose**: Evaluate robustness of discrimination estimates across alternative
-        score timing strategies and encounter-selection approaches.
+    **Purpose**: Evaluate robustness of discrimination estimates across alternative
+    score timing strategies and encounter-selection approaches.
 
-        **Strategies tested**:
-        1. Admission score (primary analysis)
-        2. Score before fall / before discharge (`before_fall`)
-        3. Maximum score during encounter (`max`)
-        4. Mean score during encounter (`mean`)
-        5. First encounter per patient only (de-duplicated cohort)
+    **Strategies tested**:
+    1. Admission score (primary analysis)
+    2. Score before fall / before discharge (`before_fall`)
+    3. Maximum score during encounter (`max`)
+    4. Mean score during encounter (`mean`)
+    5. First encounter per patient only (de-duplicated cohort)
 
-        **Output**: eTable 4 — AUROC (95% CI) and DeLong p-value for each strategy.
+    **Output**: eTable 4 — AUROC (95% CI) and DeLong p-value for each strategy.
 
-        **Reference**: TRIPOD+AI Items 13 (sensitivity analyses) and 10b (timing).
-        """
-    )
+    **Reference**: TRIPOD+AI Items 13 (sensitivity analyses) and 10b (timing).
+    """)
     return
 
 
 @app.cell
 def _():
-    from utils.constants import SCORE_TIMING, MIN_SUBGROUP_EVENTS
+    from utils.constants import SCORE_TIMING
     from utils.metrics import delong_ci, delong_roc_test
 
-    return MIN_SUBGROUP_EVENTS, SCORE_TIMING, delong_ci, delong_roc_test
+    return SCORE_TIMING, delong_ci, delong_roc_test
 
 
 @app.cell
@@ -56,7 +55,6 @@ def _():
     return cluster_bootstrap_auroc_comparison, estimate_design_effect
 
 
-# ── 1. Load data ────────────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     df = pl.read_parquet(Path("data/processed/analytic.parquet"))
@@ -76,10 +74,8 @@ def _(df, mo):
     return
 
 
-# ── 2. Helper: run one timing analysis ─────────────────────────────
 @app.cell
-def _(delong_ci, delong_roc_test, np):
-    from sklearn.metrics import roc_auc_score
+def _(delong_ci, delong_roc_test):
 
     def run_timing_analysis(
         sub_df,
@@ -151,10 +147,9 @@ def _(delong_ci, delong_roc_test, np):
         )
         return base_row
 
-    return roc_auc_score, run_timing_analysis
+    return (run_timing_analysis,)
 
 
-# ── 3. Admission score (primary) ────────────────────────────────────
 @app.cell
 def _(SCORE_TIMING, df, run_timing_analysis):
     _timing = SCORE_TIMING["admission"]
@@ -167,7 +162,6 @@ def _(SCORE_TIMING, df, run_timing_analysis):
     return (row_admission,)
 
 
-# ── 4. Before-fall score ────────────────────────────────────────────
 @app.cell
 def _(SCORE_TIMING, df, mo, pl, run_timing_analysis):
     _timing = SCORE_TIMING["before_fall"]
@@ -216,7 +210,6 @@ def _(SCORE_TIMING, df, mo, pl, run_timing_analysis):
     return (row_before_fall,)
 
 
-# ── 5. Maximum score ────────────────────────────────────────────────
 @app.cell
 def _(SCORE_TIMING, df, run_timing_analysis):
     _timing = SCORE_TIMING["max"]
@@ -230,7 +223,6 @@ def _(SCORE_TIMING, df, run_timing_analysis):
     return (row_max,)
 
 
-# ── 6. Mean score ───────────────────────────────────────────────────
 @app.cell
 def _(SCORE_TIMING, df, run_timing_analysis):
     _timing = SCORE_TIMING["mean"]
@@ -244,9 +236,8 @@ def _(SCORE_TIMING, df, run_timing_analysis):
     return (row_mean,)
 
 
-# ── 7. First encounter per patient ──────────────────────────────────
 @app.cell
-def _(SCORE_TIMING, df, mo, pl, run_timing_analysis):
+def _(SCORE_TIMING, df, mo, run_timing_analysis):
     # De-duplicate to first encounter per patient (by admission date)
     _df_first = (
         df.sort("admission_date")
@@ -278,9 +269,14 @@ def _(SCORE_TIMING, df, mo, pl, run_timing_analysis):
     return (row_first_encounter,)
 
 
-# ── 7b. Cluster-adjusted AUROC (sensitivity analysis) ─────────────
 @app.cell
-def _(SCORE_TIMING, cluster_bootstrap_auroc_comparison, df, estimate_design_effect, mo):
+def _(
+    SCORE_TIMING,
+    cluster_bootstrap_auroc_comparison,
+    df,
+    estimate_design_effect,
+    mo,
+):
     _timing = SCORE_TIMING["admission"]
     _epic_col = _timing["epic"]
     _morse_col = _timing["morse"]
@@ -313,7 +309,7 @@ def _(SCORE_TIMING, cluster_bootstrap_auroc_comparison, df, estimate_design_effe
         "Epic AUROC": f"{_cb.auc_a:.3f}",
         "Epic 95% CI": f"({_cb.ci_lower:.3f}–{_cb.ci_upper:.3f})",
         "Morse AUROC": f"{_cb.auc_b:.3f}",
-        "Morse 95% CI": f"(cluster-adjusted)",
+        "Morse 95% CI": "(cluster-adjusted)",
         "DeLong p": _p_str,
         "Note": (
             f"Cluster bootstrap (patient-level, n={_cb.n_clusters} clusters); "
@@ -335,7 +331,6 @@ def _(SCORE_TIMING, cluster_bootstrap_auroc_comparison, df, estimate_design_effe
     return (row_cluster,)
 
 
-# ── 7c. Admission-to-fall lead time (Wong-style reporting) ─────────
 @app.cell
 def _(df, mo, np, pl):
     _fallers_raw = df.filter(
@@ -352,53 +347,51 @@ def _(df, mo, np, pl):
 
     if _fallers.height == 0:
         lead_time_stats = {"n": 0, "n_excluded": _n_excluded}
-        mo.md(
+        _output = mo.md(
             f"**Warning**: No valid admission-to-fall lead times found "
             f"({_n_excluded} excluded with non-positive values)."
         )
-        return (lead_time_stats,)
+    else:
+        _lt = _fallers["lead_time_hours"].to_numpy()
+        _median = float(np.median(_lt))
+        _q25 = float(np.percentile(_lt, 25))
+        _q75 = float(np.percentile(_lt, 75))
+        _min_lt = float(np.min(_lt))
+        _max_lt = float(np.max(_lt))
+        _n = len(_lt)
 
-    _lt = _fallers["lead_time_hours"].to_numpy()
+        lead_time_stats = {
+            "n": _n,
+            "n_excluded": _n_excluded,
+            "median_hours": round(_median, 1),
+            "q25_hours": round(_q25, 1),
+            "q75_hours": round(_q75, 1),
+            "median_days": round(_median / 24, 1),
+            "q25_days": round(_q25 / 24, 1),
+            "q75_days": round(_q75 / 24, 1),
+        }
+        _output = mo.md(
+            f"""
+    ### Admission-to-Fall Lead Time
 
-    _median = float(np.median(_lt))
-    _q25 = float(np.percentile(_lt, 25))
-    _q75 = float(np.percentile(_lt, 75))
-    _min_lt = float(np.min(_lt))
-    _max_lt = float(np.max(_lt))
-    _n = len(_lt)
+    Among fallers with valid timestamps (n={_n}, {_n_excluded} excluded
+    with non-positive lead time):
 
-    lead_time_stats = {
-        "n": _n,
-        "n_excluded": _n_excluded,
-        "median_hours": round(_median, 1),
-        "q25_hours": round(_q25, 1),
-        "q75_hours": round(_q75, 1),
-        "median_days": round(_median / 24, 1),
-        "q25_days": round(_q25 / 24, 1),
-        "q75_days": round(_q75 / 24, 1),
-    }
+    - **Median lead time**: {_median:.1f} hours ({_median / 24:.1f} days)
+    - **IQR**: {_q25:.1f}–{_q75:.1f} hours ({_q25 / 24:.1f}–{_q75 / 24:.1f} days)
+    - **Range**: {_min_lt:.1f}–{_max_lt:.1f} hours
 
-    mo.md(
-        f"""
-        ### Admission-to-Fall Lead Time
+    This represents the prediction-to-event window — the time between
+    the admission score (predictor) and the fall event (outcome).
+    Per Wong et al., this frames the clinical utility of admission-time
+    screening: longer lead times give more opportunity for intervention.
+    """
+        )
 
-        Among fallers with valid timestamps (n={_n}, {_n_excluded} excluded
-        with non-positive lead time):
-
-        - **Median lead time**: {_median:.1f} hours ({_median / 24:.1f} days)
-        - **IQR**: {_q25:.1f}–{_q75:.1f} hours ({_q25 / 24:.1f}–{_q75 / 24:.1f} days)
-        - **Range**: {_min_lt:.1f}–{_max_lt:.1f} hours
-
-        This represents the prediction-to-event window — the time between
-        the admission score (predictor) and the fall event (outcome).
-        Per Wong et al., this frames the clinical utility of admission-time
-        screening: longer lead times give more opportunity for intervention.
-        """
-    )
+    _output
     return (lead_time_stats,)
 
 
-# ── 8. Assemble eTable 4 ────────────────────────────────────────────
 @app.cell
 def _(
     mo,
@@ -446,7 +439,7 @@ def _(etable4_df):
             columns=["Morse AUROC", "Morse 95% CI"],
         )
         .cols_label(
-            **{
+            cases={
                 "Timing strategy": "Score timing",
                 "N encounters": "N encounters",
                 "N falls": "N falls",
@@ -481,10 +474,9 @@ def _(etable4_df):
         )
     )
     _gt
-    return GT, loc, style
+    return
 
 
-# ── Export eTable 4 CSV ─────────────────────────────────────────────
 @app.cell
 def _(Path, etable4_df, mo):
     _out = Path("outputs/tables")
@@ -494,7 +486,117 @@ def _(Path, etable4_df, mo):
     return
 
 
-# ── 9. Export numeric results for downstream use ────────────────────
+@app.cell
+def _(mo):
+    mo.md("""
+    ## eTable 10 — Classification Metrics Across Score Timing Strategies
+
+    Full classification metrics (sensitivity, specificity, PPV, NPV, NNE) at
+    data-driven and standard thresholds for alternative score timings. This enables
+    direct comparison with Epic's published validation, which reported sensitivity
+    at specific thresholds using max-score-before-fall.
+
+    **Before-fall scores**: Included only if ≥100 non-fallers have scores; otherwise
+    excluded (non-faller comparator is last pre-discharge score, which may not exist).
+
+    **Bias caveats**: Maximum scores include post-fall assessments (high look-ahead bias).
+    Mean scores include post-fall assessments (moderate-high look-ahead bias). Thresholds
+    are applied to raw scores — no recalibration (admission recalibration model is
+    distribution-specific and cannot be reused for max/mean distributions).
+    """)
+    return
+
+
+@app.cell
+def _(SCORE_TIMING, df, pl):
+    from utils.metrics import timing_classification_metrics
+
+    _etable10_rows = []
+
+    # Define timings to evaluate (excluding admission — that's Table 2)
+    _TIMINGS = [
+        ("before_fall", "Before fall / discharge", "Moderate look-ahead bias"),
+        ("max", "Maximum (encounter)", "HIGH look-ahead bias — post-fall scores included"),
+        ("mean", "Mean (encounter)", "Moderate-high look-ahead bias — post-fall scores included"),
+    ]
+
+    for _key, _label, _note in _TIMINGS:
+        _t = SCORE_TIMING[_key]
+        _epic_col, _morse_col = _t["epic"], _t["morse"]
+
+        # Complete cases for this timing
+        _sub = df.filter(
+            pl.col(_epic_col).is_not_null() & pl.col(_morse_col).is_not_null()
+        )
+        _n = _sub.height
+        _n_falls = int(_sub["fall_flag"].sum())
+
+        # Feasibility check for before-fall: need ≥100 non-fallers with scores
+        if _key == "before_fall":
+            _n_nonfallers = _n - _n_falls
+            if _n_nonfallers < 100:
+                continue  # Skip — insufficient non-faller comparator
+
+        # Need minimum events for meaningful threshold analysis
+        if _n_falls < 20 or (_n - _n_falls) < 20:
+            continue
+
+        _y = _sub["fall_flag"].to_numpy()
+        _epic = _sub[_epic_col].to_numpy()
+        _morse = _sub[_morse_col].to_numpy()
+
+        _etable10_rows.extend(
+            timing_classification_metrics(_y, _epic, _morse, _label, _note)
+        )
+
+    etable10_df = pl.DataFrame(_etable10_rows)
+    return (etable10_df,)
+
+
+@app.cell
+def _(Path, etable10_df, mo):
+    _out = Path("outputs/tables")
+    _out.mkdir(parents=True, exist_ok=True)
+    etable10_df.write_csv(_out / "etable10_timing_classification.csv")
+
+    mo.vstack([
+        mo.md("### eTable 10. Classification Metrics Across Score Timing Strategies"),
+        mo.ui.table(etable10_df),
+        mo.md("**Saved**: `outputs/tables/etable10_timing_classification.csv`"),
+    ])
+    return
+
+
+@app.cell
+def _(mo):
+    mo.callout(
+        mo.md(
+            """
+            **Interpretation — eTable 10**
+
+            - **Max-timing vs admission**: At maximum encounter score, Epic's standard ≥35 threshold
+              should flag substantially more encounters than at admission (where 97% score <35).
+              This demonstrates the threshold calibration gap between continuous monitoring and
+              admission screening.
+
+            - **Comparison with Epic model brief**: Epic's validation reported 82–86% sensitivity
+              at thresholds 7–21 using max-score-before-fall. Our max-timing MFS ≥45 sensitivity
+              can be compared with their reported MFS sensitivity (80.5–87.6% at threshold 45).
+
+            - **Bias warning**: Max and mean scores include post-fall assessments and represent
+              an upper bound on achievable performance, not a clinically actionable estimate.
+              These results contextualize the primary admission-time analysis, not replace it.
+
+            - **No recalibration applied**: Thresholds are on raw scores. The admission logistic
+              recalibration model is distribution-specific and cannot be reused for max/mean
+              score distributions.
+            """
+        ),
+        kind="warn",
+    )
+    return
+
+
 @app.cell
 def _(Path, etable4_df, lead_time_stats, mo):
     import json
@@ -534,37 +636,34 @@ def _(Path, etable4_df, lead_time_stats, mo):
     return
 
 
-# ── 10. Narrative summary ───────────────────────────────────────────
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Sensitivity Analyses Summary
+    mo.md("""
+    ## Sensitivity Analyses Summary
 
-        **Timing hierarchy** (ascending bias risk):
+    **Timing hierarchy** (ascending bias risk):
 
-        1. **Admission score** (primary) — No look-ahead bias. First score documented
-           after admission. This is the reference analysis for all primary comparisons.
+    1. **Admission score** (primary) — No look-ahead bias. First score documented
+       after admission. This is the reference analysis for all primary comparisons.
 
-        2. **Before fall / discharge** — Moderate bias risk. For fallers, uses the
-           most recent score before the event; for non-fallers, the last pre-discharge
-           score. Slightly higher AUROC expected due to temporal proximity to outcome.
+    2. **Before fall / discharge** — Moderate bias risk. For fallers, uses the
+       most recent score before the event; for non-fallers, the last pre-discharge
+       score. Slightly higher AUROC expected due to temporal proximity to outcome.
 
-        3. **Maximum score** — High bias risk. Includes all scores during the encounter,
-           including those documented after the fall event. Represents an upper bound
-           on achievable discrimination, not a clinically actionable estimate.
+    3. **Maximum score** — High bias risk. Includes all scores during the encounter,
+       including those documented after the fall event. Represents an upper bound
+       on achievable discrimination, not a clinically actionable estimate.
 
-        4. **Mean score** — Moderate-to-high bias risk. Same caveat as maximum.
+    4. **Mean score** — Moderate-to-high bias risk. Same caveat as maximum.
 
-        5. **First encounter per patient** — Addresses within-patient correlation by
-           restricting to one admission per MRN. Provides estimate closer to
-           independence assumption; useful for methodological robustness check.
+    5. **First encounter per patient** — Addresses within-patient correlation by
+       restricting to one admission per MRN. Provides estimate closer to
+       independence assumption; useful for methodological robustness check.
 
-        **DeLong test**: Paired two-sided test (Sun & Xu 2014) for H₀: AUC_Epic = AUC_Morse
-        on the same complete-case encounters. p < 0.05 indicates statistically significant
-        discrimination difference.
-        """
-    )
+    **DeLong test**: Paired two-sided test (Sun & Xu 2014) for H₀: AUC_Epic = AUC_Morse
+    on the same complete-case encounters. p < 0.05 indicates statistically significant
+    discrimination difference.
+    """)
     return
 
 

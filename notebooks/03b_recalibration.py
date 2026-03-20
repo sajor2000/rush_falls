@@ -1,38 +1,34 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
-# ── Cell 1: Title + plain-English intro ────────────────────────────────────
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # 03b — Why We Convert Scores to Probabilities
+    mo.md("""
+    # 03b — Why We Convert Scores to Probabilities
 
-        Neither the Epic Predictive Model Fall Risk Score (PMFRS) nor the Morse
-        Fall Scale (MFS) outputs a fall *probability*. They are ordinal risk
-        indices on completely different scales:
+    Neither the Epic Predictive Model Fall Risk Score (PMFRS) nor the Morse
+    Fall Scale (MFS) outputs a fall *probability*. They are ordinal risk
+    indices on completely different scales:
 
-        | Instrument | Range | What the number means |
-        |---|---|---|
-        | **Epic PMFRS** | 0–100 (continuous float) | Output of an ordinal logistic regression trained on a **3-level target**: (0) no intervention & not high-risk & no fall, (1) high-risk or minor intervention, (2) major intervention or fall. A score of 45 does **not** mean "45% chance of falling." |
-        | **Morse Fall Scale** | 0–125 (discrete integer) | Sum of 6 nurse-assessed items — e.g., 25 points for fall history + 20 for IV therapy = 45. The total is an additive checklist, not a probability. |
+    | Instrument | Range | What the number means |
+    |---|---|---|
+    | **Epic PMFRS** | 0–100 (continuous float) | Output of an ordinal logistic regression trained on a **3-level target**: (0) no intervention & not high-risk & no fall, (1) high-risk or minor intervention, (2) major intervention or fall. A score of 45 does **not** mean "45% chance of falling." |
+    | **Morse Fall Scale** | 0–125 (discrete integer) | Sum of 6 nurse-assessed items — e.g., 25 points for fall history + 20 for IV therapy = 45. The total is an additive checklist, not a probability. |
 
-        **Recalibration** answers the question: *"In our hospital, what is the
-        actual probability of falling during this admission for a patient with
-        a given score?"*
+    **Recalibration** answers the question: *"In our hospital, what is the
+    actual probability of falling during this admission for a patient with
+    a given score?"*
 
-        This notebook walks through the recalibration step that all downstream
-        analyses (notebooks 04–11) rely on. It is designed so that someone
-        without biostatistics training can follow along.
-        """
-    )
+    This notebook walks through the recalibration step that all downstream
+    analyses (notebooks 04–11) rely on. It is designed so that someone
+    without biostatistics training can follow along.
+    """)
     return
 
 
-# ── Cell 2: Core imports ──────────────────────────────────────────────────
 @app.cell
 def _():
     from pathlib import Path
@@ -46,7 +42,6 @@ def _():
     return Path, matplotlib, mo, np, pl, plt
 
 
-# ── Cell 3: Utility imports ──────────────────────────────────────────────
 @app.cell
 def _():
     from utils.constants import (
@@ -79,7 +74,6 @@ def _():
     )
 
 
-# ── Cell 4: Load data ────────────────────────────────────────────────────
 @app.cell
 def _(Path, mo, pl):
     df = pl.read_parquet(Path("data/processed/analytic.parquet"))
@@ -104,28 +98,35 @@ def _(df):
     return epic_scores, morse_scores, y_true
 
 
-# ── Cell 5: Raw score distributions ──────────────────────────────────────
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## What do the raw scores look like?
+    mo.md("""
+    ## What do the raw scores look like?
 
-        Epic PMFRS produces a **continuous float** with 61,908 unique values
-        (range 0.1–96.7). Morse is a **discrete integer** with only 24 unique
-        values (range 0–125). The two instruments live on completely different
-        scales.
+    Epic PMFRS produces a **continuous float** with 61,908 unique values
+    (range 0.1–96.7). Morse is a **discrete integer** with only 24 unique
+    values (range 0–125). The two instruments live on completely different
+    scales.
 
-        The histograms below show how scores are distributed for fallers
-        (colored) versus non-fallers (grey). Note that both distributions
-        overlap heavily — neither score cleanly separates the two groups.
-        """
-    )
+    The histograms below show how scores are distributed for fallers
+    (colored) versus non-fallers (grey). Note that both distributions
+    overlap heavily — neither score cleanly separates the two groups.
+    """)
     return
 
 
 @app.cell
-def _(COLORS, FIG_DOUBLE_COL, JAMA_STYLE, epic_scores, matplotlib, morse_scores, np, plt, y_true):
+def _(
+    COLORS,
+    FIG_DOUBLE_COL,
+    JAMA_STYLE,
+    epic_scores,
+    matplotlib,
+    morse_scores,
+    np,
+    plt,
+    y_true,
+):
     _events = y_true == 1
     with matplotlib.rc_context(JAMA_STYLE):
         _fig, (_ax1, _ax2) = plt.subplots(
@@ -239,10 +240,11 @@ def _(COLORS, FIG_DOUBLE_COL, JAMA_STYLE, epic_scores, matplotlib, morse_scores,
     return
 
 
-# ── Cell 6: Summary statistics table ─────────────────────────────────────
 @app.cell
 def _(mo):
-    mo.md("## Summary statistics by fall status")
+    mo.md("""
+    ## Summary statistics by fall status
+    """)
     return
 
 
@@ -279,7 +281,6 @@ def _(df, mo, np, pl):
     return
 
 
-# ── Cell 7: Why scores are not probabilities ─────────────────────────────
 @app.cell
 def _(df, epic_scores, mo, np, pl):
     _prev = df.filter(pl.col("fall_flag") == 1).height / df.height * 100
@@ -324,22 +325,19 @@ def _(df, epic_scores, mo, np, pl):
     return
 
 
-# ── Cell 8: Fit recalibration models ─────────────────────────────────────
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Logistic recalibration
+    mo.md("""
+    ## Logistic recalibration
 
-        We fit a simple one-variable logistic regression for each score:
+    We fit a simple one-variable logistic regression for each score:
 
-        > **P(fall) = 1 / (1 + exp(-(a + b x score)))**
+    > **P(fall) = 1 / (1 + exp(-(a + b x score)))**
 
-        This finds the best-fitting S-curve that maps each score to a fall
-        probability using our hospital's data. The technique is called
-        **logistic recalibration** (Steyerberg 2019, Van Calster 2019).
-        """
-    )
+    This finds the best-fitting S-curve that maps each score to a fall
+    probability using our hospital's data. The technique is called
+    **logistic recalibration** (Steyerberg 2019, Van Calster 2019).
+    """)
     return
 
 
@@ -350,7 +348,6 @@ def _(epic_scores, logistic_recalibration, morse_scores, y_true):
     return epic_lr, epic_prob, morse_lr, morse_prob
 
 
-# ── Cell 9: Model coefficients ───────────────────────────────────────────
 @app.cell
 def _(df, epic_lr, mo, morse_lr, np, pl):
     _epic_a = epic_lr.intercept_[0]
@@ -386,7 +383,6 @@ def _(df, epic_lr, mo, morse_lr, np, pl):
     return
 
 
-# ── Cell 10: Score-to-probability mapping curves (KEY FIGURE) ────────────
 @app.cell
 def _(
     COLORS,
@@ -511,20 +507,19 @@ def _(
         _ax2.set_xlim(-3, 128)
         _ax2.set_ylim(-0.25, max(_morse_y * 100) * 1.15)
 
-        _fig.subplots_adjust(wspace=0.35, bottom=0.13)
+        _fig.subplots_adjust(wspace=0.35, bottom=0.18)
 
         _fig.text(
-            0.5, -0.02,
+            0.5, -0.06,
             "Score-to-probability mapping via logistic recalibration",
             ha="center", va="top", fontsize=10, fontweight="bold",
         )
 
-    save_figure(_fig, "recalibration_mapping")
+    save_figure(_fig, "recalibration_mapping", bbox_inches=None, pad_inches=0.15)
     _fig
     return
 
 
-# ── Cell 11: Probability equivalents at clinical cutoffs ─────────────────
 @app.cell
 def _(
     EPIC_2TIER_HIGH,
@@ -607,7 +602,6 @@ def _(
     return
 
 
-# ── Cell 12: Recalibrated probability distributions ─────────────────────
 @app.cell
 def _(df, mo, pl):
     _prev = df.filter(pl.col("fall_flag") == 1).height / df.height * 100
@@ -624,7 +618,19 @@ def _(df, mo, pl):
 
 
 @app.cell
-def _(COLORS, FIG_DOUBLE_COL, JAMA_STYLE, df, epic_prob, matplotlib, morse_prob, np, pl, plt, y_true):
+def _(
+    COLORS,
+    FIG_DOUBLE_COL,
+    JAMA_STYLE,
+    df,
+    epic_prob,
+    matplotlib,
+    morse_prob,
+    np,
+    pl,
+    plt,
+    y_true,
+):
     _events = y_true == 1
     _prev = float(df.filter(pl.col("fall_flag") == 1).height / df.height)
     _pmax = max(float(np.max(epic_prob)), float(np.max(morse_prob)))
@@ -718,7 +724,6 @@ def _(COLORS, FIG_DOUBLE_COL, JAMA_STYLE, df, epic_prob, matplotlib, morse_prob,
     return
 
 
-# ── Cell 13: AUC preservation check ─────────────────────────────────────
 @app.cell
 def _(epic_prob, epic_scores, mo, morse_prob, morse_scores, y_true):
     from sklearn.metrics import roc_auc_score as _roc_auc_score
@@ -750,7 +755,6 @@ def _(epic_prob, epic_scores, mo, morse_prob, morse_scores, y_true):
     return
 
 
-# ── Cell 14: Calibration metrics ─────────────────────────────────────────
 @app.cell
 def _(calibration_metrics, epic_prob, mo, morse_prob, y_true):
     epic_cal = calibration_metrics(y_true, epic_prob, lowess_frac=0.3)
@@ -782,37 +786,34 @@ def _(calibration_metrics, epic_prob, mo, morse_prob, y_true):
     return
 
 
-# ── Cell 15: Key takeaways ──────────────────────────────────────────────
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Key takeaways
+    mo.md("""
+    ## Key takeaways
 
-        1. **Neither score is a probability.** Epic PMFRS is an ordinal logistic
-           regression output trained on a 3-level target (no-intervention /
-           intervention / fall). Morse is a 6-item additive checklist. Both are
-           ordinal risk indices, not calibrated probabilities.
+    1. **Neither score is a probability.** Epic PMFRS is an ordinal logistic
+       regression output trained on a 3-level target (no-intervention /
+       intervention / fall). Morse is a 6-item additive checklist. Both are
+       ordinal risk indices, not calibrated probabilities.
 
-        2. **Logistic recalibration** fits a one-variable logistic regression
-           (`score -> P(fall)`) using our hospital's data, converting each raw
-           score to a predicted fall probability.
+    2. **Logistic recalibration** fits a one-variable logistic regression
+       (`score -> P(fall)`) using our hospital's data, converting each raw
+       score to a predicted fall probability.
 
-        3. **Discrimination (AUC) is unchanged.** Recalibration is a monotonic
-           transformation that preserves patient ranking. The same AUC, the
-           same DeLong test, the same bootstrap CIs — nothing about
-           discrimination changes.
+    3. **Discrimination (AUC) is unchanged.** Recalibration is a monotonic
+       transformation that preserves patient ranking. The same AUC, the
+       same DeLong test, the same bootstrap CIs — nothing about
+       discrimination changes.
 
-        4. **Probabilities are required for downstream analyses.** DCA, NRI/IDI,
-           calibration plots, and value-optimizing thresholds all need actual
-           predicted probabilities, not arbitrary score units.
+    4. **Probabilities are required for downstream analyses.** DCA, NRI/IDI,
+       calibration plots, and value-optimizing thresholds all need actual
+       predicted probabilities, not arbitrary score units.
 
-        5. **All downstream notebooks (04–11) use this same recalibration** via
-           `logistic_recalibration()` in `utils/metrics.py`. This notebook
-           documents the shared step so every collaborator understands what it
-           does and why.
-        """
-    )
+    5. **All downstream notebooks (04–11) use this same recalibration** via
+       `logistic_recalibration()` in `utils/metrics.py`. This notebook
+       documents the shared step so every collaborator understands what it
+       does and why.
+    """)
     return
 
 

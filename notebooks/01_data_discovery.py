@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
@@ -17,18 +17,16 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # 01 — Data Discovery & Standardization
+    mo.md("""
+    # 01 — Data Discovery & Standardization
 
-        **Purpose**: Ingest raw Excel export, standardize column names, compute derived
-        variables, run data quality checks, apply exclusions, and write the analytic
-        parquet file used by all downstream notebooks.
+    **Purpose**: Ingest raw Excel export, standardize column names, compute derived
+    variables, run data quality checks, apply exclusions, and write the analytic
+    parquet file used by all downstream notebooks.
 
-        **Input**: `data/raw/output_table_v4.xlsx`
-        **Output**: `data/processed/analytic.parquet`
-        """
-    )
+    **Input**: `data/raw/output_table_v4.xlsx`
+    **Output**: `data/processed/analytic.parquet`
+    """)
     return
 
 
@@ -37,16 +35,17 @@ def _():
     from utils.constants import (
         CATEGORICAL_COLS,
         COLUMN_RENAME_MAP,
-        DATETIME_COLS,
         ETHNICITY_CLEAN_MAP,
         GENDER_CLEAN_MAP,
-        INPATIENT_CODES,
         RACE_CLEAN_MAP,
     )
 
     return (
-        CATEGORICAL_COLS, COLUMN_RENAME_MAP, DATETIME_COLS,
-        ETHNICITY_CLEAN_MAP, GENDER_CLEAN_MAP, INPATIENT_CODES, RACE_CLEAN_MAP,
+        CATEGORICAL_COLS,
+        COLUMN_RENAME_MAP,
+        ETHNICITY_CLEAN_MAP,
+        GENDER_CLEAN_MAP,
+        RACE_CLEAN_MAP,
     )
 
 
@@ -61,7 +60,6 @@ def _():
     return FIG_DOUBLE_COL, FIG_SINGLE_COL, plt, save_figure
 
 
-# ── 1. Load raw data ────────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     _path = Path("data/raw/output_table_v4.xlsx")
@@ -84,7 +82,6 @@ def _(df_raw, mo, n_raw):
     return
 
 
-# ── 2. Rename columns ──────────────────────────────────────────────
 @app.cell
 def _(COLUMN_RENAME_MAP, df_raw, pl):
     # Build rename map only for columns that actually exist in the data
@@ -117,22 +114,18 @@ def _(COLUMN_RENAME_MAP, df_raw, pl):
                 df_renamed = df_renamed.with_columns(
                     pl.col(_col).str.to_datetime(strict=False).alias(_col)
                 )
-
     return (df_renamed,)
 
 
-# ── 2b. Data QC: missingness, levels, label cleaning ─────────────
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Data Quality: Variable Missingness & Levels
+    mo.md("""
+    ## Data Quality: Variable Missingness & Levels
 
-        Profile every column for missingness, inspect categorical levels for
-        dirty labels, then standardize demographics for publication tables and
-        figures.
-        """
-    )
+    Profile every column for missingness, inspect categorical levels for
+    dirty labels, then standardize demographics for publication tables and
+    figures.
+    """)
     return
 
 
@@ -187,7 +180,14 @@ def _(CATEGORICAL_COLS, df_renamed, mo, pl):
 
 
 @app.cell
-def _(ETHNICITY_CLEAN_MAP, GENDER_CLEAN_MAP, RACE_CLEAN_MAP, df_renamed, mo, pl):
+def _(
+    ETHNICITY_CLEAN_MAP,
+    GENDER_CLEAN_MAP,
+    RACE_CLEAN_MAP,
+    df_renamed,
+    mo,
+    pl,
+):
     # Strip whitespace from all string columns; empty strings → null
     _str_cols = [
         c for c in df_renamed.columns if df_renamed[c].dtype in (pl.String, pl.Utf8)
@@ -247,7 +247,6 @@ def _(ETHNICITY_CLEAN_MAP, GENDER_CLEAN_MAP, RACE_CLEAN_MAP, df_renamed, mo, pl)
     return (df,)
 
 
-# ── 3. Derive variables ────────────────────────────────────────────
 @app.cell
 def _(df, pl):
     # Replace literal "NULL" strings with actual nulls in unit_fall_occurred
@@ -302,7 +301,6 @@ def _(df_derived, mo, pl):
     return
 
 
-# ── 4. Data quality checks ─────────────────────────────────────────
 @app.cell
 def _(df_derived, mo, pl):
     _checks = []
@@ -377,7 +375,6 @@ def _(df_derived, mo, pl):
     return
 
 
-# ── 5. Missing data characterization ───────────────────────────────
 @app.cell
 def _(df_derived, mo, pl):
     _score_cols = [
@@ -416,9 +413,8 @@ def _(missing_profile, mo):
     return
 
 
-# ── 6. Apply exclusions ────────────────────────────────────────────
 @app.cell
-def _(INPATIENT_CODES, df_derived, mo, pl):
+def _(df_derived, mo, pl):
     _flow = []
     _df = df_derived
     _flow.append(f"Starting encounters: {_df.height:,}")
@@ -428,15 +424,7 @@ def _(INPATIENT_CODES, df_derived, mo, pl):
     _df = _df.filter(pl.col("age") >= 18)
     _flow.append(f"Excluded age < 18: {_excluded:,} → remaining: {_df.height:,}")
 
-    # 6b. Exclude non-inpatient
-    _excluded = _df.filter(~pl.col("accommodation_code").is_in(INPATIENT_CODES)).height
-    _df = _df.filter(pl.col("accommodation_code").is_in(INPATIENT_CODES))
-    _flow.append(
-        f"Excluded non-inpatient (accommodation_code not in {INPATIENT_CODES}): "
-        f"{_excluded:,} → remaining: {_df.height:,}"
-    )
-
-    # 6c. Exclude missing discharge_department
+    # 6b. Exclude missing discharge_department
     _excluded = _df.filter(pl.col("discharge_department").is_null()).height
     _df = _df.filter(pl.col("discharge_department").is_not_null())
     _flow.append(
@@ -466,7 +454,6 @@ def _(INPATIENT_CODES, df_derived, mo, pl):
     return (df_eligible,)
 
 
-# ── 7. Define analytic cohorts ──────────────────────────────────────
 @app.cell
 def _(df_eligible, mo, pl):
     # Primary: both scores present
@@ -491,7 +478,6 @@ def _(df_eligible, mo, pl):
     return (df_analytic,)
 
 
-# ── 8. Score distributions ──────────────────────────────────────────
 @app.cell
 def _(df_analytic, mo, pl):
     _desc = df_analytic.select(
@@ -522,7 +508,6 @@ def _(df_analytic, mo, pl):
     return
 
 
-# ── 9. Study Period Summary (TRIPOD+AI Item 5b) ──────────────────────
 @app.cell
 def _(df_analytic, mo, pl):
     _adm_min = df_analytic["admission_date"].min()
@@ -551,7 +536,6 @@ def _(df_analytic, mo, pl):
     return
 
 
-# ── 10. Faller Demographics Profile ──────────────────────────────────
 @app.cell
 def _(df_analytic, mo, np, pl):
     _fallers = df_analytic.filter(pl.col("fall_flag") == 1)
@@ -597,7 +581,6 @@ def _(df_analytic, mo, np, pl):
     return
 
 
-# ── 11. Where Falls Occur ─────────────────────────────────────────────
 @app.cell
 def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
     _fall_units = (
@@ -627,7 +610,6 @@ def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
     return
 
 
-# ── 12. Fall Rate by Admitting Department ─────────────────────────────
 @app.cell
 def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
     _dept_stats = (
@@ -663,7 +645,6 @@ def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
     return
 
 
-# ── 13. Temporal Patterns ─────────────────────────────────────────────
 @app.cell
 def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
     _with_dt = df_analytic.filter(pl.col("fall_datetime").is_not_null())
@@ -702,7 +683,6 @@ def _(FIG_DOUBLE_COL, df_analytic, mo, pl, plt, save_figure):
     return
 
 
-# ── 14. Admission-to-Fall Timing + LOS Comparison ────────────────────
 @app.cell
 def _(FIG_SINGLE_COL, df_analytic, mo, np, pl, plt, save_figure):
     # Admission-to-fall timing
@@ -761,7 +741,6 @@ def _(FIG_SINGLE_COL, df_analytic, mo, np, pl, plt, save_figure):
     return
 
 
-# ── 15. Write analytic parquet ───────────────────────────────────────
 @app.cell
 def _(Path, df_analytic, mo):
     _out = Path("data/processed")

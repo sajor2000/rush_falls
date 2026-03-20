@@ -1,54 +1,51 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _():
-    import marimo as mo
-    import polars as pl
-    import matplotlib.pyplot as plt
-    import matplotlib.patches as mpatches
-    from matplotlib.patches import FancyBboxPatch, FancyArrowPatch
     from pathlib import Path
 
-    return FancyArrowPatch, FancyBboxPatch, Path, mo, mpatches, pl, plt
+    import marimo as mo
+    import matplotlib.pyplot as plt
+    import polars as pl
+    from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
+
+    return FancyArrowPatch, FancyBboxPatch, Path, mo, pl, plt
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # eFigure 4 — CONSORT-Style Cohort Flow Diagram
+    mo.md("""
+    # eFigure 4 — CONSORT-Style Cohort Flow Diagram
 
-        Reconstructs the exclusion sequence step-by-step from the raw Excel export,
-        then reads the post-exclusion analytic cohort to verify counts. Produces a
-        publication-quality flow diagram per JAMA Network Open figure specifications.
+    Reconstructs the exclusion sequence step-by-step from the raw Excel export,
+    then reads the post-exclusion analytic cohort to verify counts. Produces a
+    publication-quality flow diagram per JAMA Network Open figure specifications.
 
-        **Inputs**
-        - `data/raw/output_table_v4.xlsx` — raw export (pre-exclusion)
-        - `data/processed/analytic.parquet` — complete-case analytic cohort
+    **Inputs**
+    - `data/raw/output_table_v4.xlsx` — raw export (pre-exclusion)
+    - `data/processed/analytic.parquet` — complete-case analytic cohort
 
-        **Output**
-        - `outputs/figures/efigure4_cohort_flow.pdf` (primary, vector)
-        - `outputs/figures/efigure4_cohort_flow.png` (300 DPI backup)
-        """
-    )
+    **Output**
+    - `outputs/figures/efigure4_cohort_flow.pdf` (primary, vector)
+    - `outputs/figures/efigure4_cohort_flow.png` (300 DPI backup)
+    """)
     return
 
 
 @app.cell
 def _():
-    from utils.constants import COLUMN_RENAME_MAP, INPATIENT_CODES
+    from utils.constants import COLUMN_RENAME_MAP
     from utils.plotting import JAMA_STYLE, save_figure
 
-    return COLUMN_RENAME_MAP, INPATIENT_CODES, JAMA_STYLE, save_figure
+    return COLUMN_RENAME_MAP, JAMA_STYLE, save_figure
 
 
-# ── 1. Load raw data and reconstruct exclusion flow ─────────────────
 @app.cell
-def _(COLUMN_RENAME_MAP, INPATIENT_CODES, Path, pl):
+def _(COLUMN_RENAME_MAP, Path, pl):
     _raw_path = Path("data/raw/output_table_v4.xlsx")
     _df_raw = pl.read_excel(_raw_path)
 
@@ -103,15 +100,7 @@ def _(COLUMN_RENAME_MAP, INPATIENT_CODES, Path, pl):
     n_after_age = _df.height
     n_after_age_falls = int(_df["fall_flag"].sum())
 
-    # Step 2: exclude non-inpatient
-    _excl_obs = _df.filter(~pl.col("accommodation_code").is_in(INPATIENT_CODES))
-    n_excl_obs = _excl_obs.height
-    n_excl_obs_falls = int(_excl_obs["fall_flag"].sum())
-    _df = _df.filter(pl.col("accommodation_code").is_in(INPATIENT_CODES))
-    n_after_obs = _df.height
-    n_after_obs_falls = int(_df["fall_flag"].sum())
-
-    # Step 3: exclude missing discharge_department
+    # Step 2: exclude missing discharge_department
     _excl_dept = _df.filter(pl.col("discharge_department").is_null())
     n_excl_dept = _excl_dept.height
     n_excl_dept_falls = int(_excl_dept["fall_flag"].sum())
@@ -149,10 +138,6 @@ def _(COLUMN_RENAME_MAP, INPATIENT_CODES, Path, pl):
         "n_excl_age_falls": n_excl_age_falls,
         "n_after_age": n_after_age,
         "n_after_age_falls": n_after_age_falls,
-        "n_excl_obs": n_excl_obs,
-        "n_excl_obs_falls": n_excl_obs_falls,
-        "n_after_obs": n_after_obs,
-        "n_after_obs_falls": n_after_obs_falls,
         "n_excl_dept": n_excl_dept,
         "n_excl_dept_falls": n_excl_dept_falls,
         "n_eligible": n_eligible,
@@ -165,11 +150,9 @@ def _(COLUMN_RENAME_MAP, INPATIENT_CODES, Path, pl):
         "n_analytic_falls": n_analytic_falls,
         "n_analytic_nofall": n_analytic_nofall,
     }
-
     return (flow_counts,)
 
 
-# ── 2. Cross-check against the saved analytic parquet ───────────────
 @app.cell
 def _(Path, flow_counts, mo, pl):
     _parquet = Path("data/processed/analytic.parquet")
@@ -203,15 +186,12 @@ def _(Path, flow_counts, mo, pl):
     return
 
 
-# ── 3. Summarise flow counts for inspection ─────────────────────────
 @app.cell
 def _(flow_counts, mo, pl):
     _rows = [
         {"Step": "All encounters (raw)", "N": flow_counts["n_raw"], "Falls": flow_counts["n_raw_falls"]},
         {"Step": "Excluded: age < 18", "N": flow_counts["n_excl_age"], "Falls": flow_counts["n_excl_age_falls"]},
         {"Step": "After age exclusion", "N": flow_counts["n_after_age"], "Falls": flow_counts["n_after_age_falls"]},
-        {"Step": "Excluded: non-inpatient", "N": flow_counts["n_excl_obs"], "Falls": flow_counts["n_excl_obs_falls"]},
-        {"Step": "After inpatient filter", "N": flow_counts["n_after_obs"], "Falls": flow_counts["n_after_obs_falls"]},
         {"Step": "Excluded: missing discharge dept", "N": flow_counts["n_excl_dept"], "Falls": flow_counts["n_excl_dept_falls"]},
         {"Step": "Eligible encounters", "N": flow_counts["n_eligible"], "Falls": flow_counts["n_eligible_falls"]},
         {"Step": "Missing Epic score (branch)", "N": flow_counts["n_miss_epic"], "Falls": flow_counts["n_miss_epic_falls"]},
@@ -226,14 +206,20 @@ def _(flow_counts, mo, pl):
 
 
 @app.cell
-def _(summary_table, mo):
+def _(mo, summary_table):
     mo.ui.table(summary_table)
     return
 
 
-# ── 4. Draw the CONSORT flow diagram ────────────────────────────────
 @app.cell
-def _(FancyArrowPatch, FancyBboxPatch, JAMA_STYLE, flow_counts, plt, save_figure):
+def _(
+    FancyArrowPatch,
+    FancyBboxPatch,
+    JAMA_STYLE,
+    flow_counts,
+    plt,
+    save_figure,
+):
     with plt.rc_context(JAMA_STYLE):
         # Figure: double-column width (7.0 in), tall for 8 node levels
         _fig, _ax = plt.subplots(figsize=(7.0, 10.0))
@@ -257,16 +243,15 @@ def _(FancyArrowPatch, FancyBboxPatch, JAMA_STYLE, flow_counts, plt, save_figure
         _BH = 0.068         # Standard box height
         _SH = 0.055         # Small exclusion box height
 
-        # Y levels (1 = top, 0 = bottom)
+        # Y levels (1 = top, 0 = bottom) — 7 nodes
         _YL = {
             "raw":      0.935,
-            "age":      0.830,
-            "obs":      0.720,
-            "dept":     0.610,
-            "eligible": 0.490,
-            "missing":  0.350,
-            "analytic": 0.210,
-            "split":    0.065,
+            "age":      0.820,
+            "dept":     0.700,
+            "eligible": 0.570,
+            "missing":  0.420,
+            "analytic": 0.260,
+            "split":    0.090,
         }
 
         # ── Helpers ───────────────────────────────────────────────────
@@ -330,25 +315,8 @@ def _(FancyArrowPatch, FancyBboxPatch, JAMA_STYLE, flow_counts, plt, save_figure
         )
         _excl_arrow(_YL["age"])
 
-        # ── Node 3: After inpatient filter ─────────────────────────────
-        _vert("age", "obs")
-        _box(
-            _MX, _YL["obs"], _MW, _BH,
-            f"Inpatient encounters\n"
-            f"(n\u202f=\u202f{flow_counts['n_after_obs']:,}; "
-            f"{flow_counts['n_after_obs_falls']:,} falls)",
-            fs=9,
-        )
-        _box(
-            _EX, _YL["obs"], _EW, _SH,
-            f"Excluded: non-inpatient\n"
-            f"(observation/outpatient;\u202fn\u202f=\u202f{flow_counts['n_excl_obs']:,})",
-            face=_EXCL_FACE, fs=8,
-        )
-        _excl_arrow(_YL["obs"])
-
-        # ── Node 4: After discharge-dept filter ────────────────────────
-        _vert("obs", "dept")
+        # ── Node 3: After discharge-dept filter ────────────────────────
+        _vert("age", "dept")
         _box(
             _MX, _YL["dept"], _MW, _BH,
             f"Discharge department recorded\n"
@@ -461,13 +429,13 @@ def _(FancyArrowPatch, FancyBboxPatch, JAMA_STYLE, flow_counts, plt, save_figure
 
         # ── Figure title below (JAMA convention) ───────────────────────
         _fig.text(
-            0.5, -0.02,
+            0.5, -0.04,
             "eFigure 4. CONSORT-style cohort flow diagram",
             ha="center", va="top", fontsize=10, fontweight="bold",
         )
 
         # ── Save figure ───────────────────────────────────────────────
-        save_figure(_fig, "efigure4_cohort_flow", formats=("pdf", "png"))
+        save_figure(_fig, "efigure4_cohort_flow", formats=("pdf", "png"), bbox_inches=None, pad_inches=0.15)
 
     efig4 = _fig
     return (efig4,)
@@ -476,7 +444,7 @@ def _(FancyArrowPatch, FancyBboxPatch, JAMA_STYLE, flow_counts, plt, save_figure
 @app.cell
 def _(efig4, mo):
     mo.md(
-        f"**Saved**: `outputs/figures/efigure4_cohort_flow.pdf` and `.png`"
+        "**Saved**: `outputs/figures/efigure4_cohort_flow.pdf` and `.png`"
     )
     efig4
     return

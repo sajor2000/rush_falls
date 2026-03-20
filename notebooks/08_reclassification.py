@@ -11,33 +11,33 @@ Threshold       = Youden index from Morse model (for categorical NRI)
 Inputs:  data/processed/analytic.parquet
 Outputs: outputs/tables/table3.csv
 """
+
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-r"""
-# Table 3. Reclassification Analysis
+    mo.md(r"""
+    # Table 3. Reclassification Analysis
 
-Net reclassification improvement (NRI) and integrated discrimination
-improvement (IDI) comparing Epic PMFRS (new model) vs Morse Fall Scale
-(reference model). Event NRI and non-event NRI reported separately
-(Pepe MS et al. *Stat Med* 2015;34:110–128).
+    Net reclassification improvement (NRI) and integrated discrimination
+    improvement (IDI) comparing Epic PMFRS (new model) vs Morse Fall Scale
+    (reference model). Event NRI and non-event NRI reported separately
+    (Pepe MS et al. *Stat Med* 2015;34:110–128).
 
-**Threshold for categorical NRI**: Youden index from Morse Fall Scale.
-**Bootstrap CIs**: 2000 stratified replicates, seed 42.
-"""
-    )
+    **Threshold for categorical NRI**: Youden index from Morse Fall Scale.
+    **Bootstrap CIs**: 2000 stratified replicates, seed 42.
+    """)
     return
 
 
@@ -47,6 +47,7 @@ def _():
 
     import numpy as np
     import polars as pl
+
     return Path, np, pl
 
 
@@ -67,6 +68,7 @@ def _():
         logistic_recalibration,
         youden_threshold,
     )
+
     return (
         ALPHA,
         EPIC_2TIER_HIGH,
@@ -82,7 +84,6 @@ def _():
     )
 
 
-# ── Load data ─────────────────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     _path = Path("data/processed/analytic.parquet")
@@ -98,9 +99,17 @@ def _(df):
     return epic_scores, morse_scores, y_true
 
 
-# ── Logistic recalibration ────────────────────────────────────────────
 @app.cell
-def _(EPIC_2TIER_HIGH, EPIC_3TIER_MEDIUM, MFS_HIGH, MFS_MODERATE, epic_scores, logistic_recalibration, morse_scores, y_true):
+def _(
+    EPIC_2TIER_HIGH,
+    EPIC_3TIER_MEDIUM,
+    MFS_HIGH,
+    MFS_MODERATE,
+    epic_scores,
+    logistic_recalibration,
+    morse_scores,
+    y_true,
+):
     epic_prob, _epic_lr = logistic_recalibration(epic_scores, y_true)
     morse_prob, _morse_lr = logistic_recalibration(morse_scores, y_true)
 
@@ -110,12 +119,30 @@ def _(EPIC_2TIER_HIGH, EPIC_3TIER_MEDIUM, MFS_HIGH, MFS_MODERATE, epic_scores, l
     morse_prob_at_45 = float(_morse_lr.predict_proba([[float(MFS_HIGH)]])[0, 1])
     epic_prob_at_35 = float(_epic_lr.predict_proba([[float(EPIC_3TIER_MEDIUM)]])[0, 1])
     epic_prob_at_50 = float(_epic_lr.predict_proba([[float(EPIC_2TIER_HIGH)]])[0, 1])
-    return epic_prob, epic_prob_at_35, epic_prob_at_50, morse_prob, morse_prob_at_25, morse_prob_at_45
+    return (
+        epic_prob,
+        epic_prob_at_35,
+        epic_prob_at_50,
+        morse_prob,
+        morse_prob_at_25,
+        morse_prob_at_45,
+    )
 
 
-# ── Youden threshold from Morse (reference model) ────────────────────
 @app.cell
-def _(epic_prob, epic_prob_at_35, epic_prob_at_50, epic_scores, morse_prob, morse_prob_at_25, morse_prob_at_45, mo, np, y_true, youden_threshold):
+def _(
+    epic_prob,
+    epic_prob_at_35,
+    epic_prob_at_50,
+    epic_scores,
+    mo,
+    morse_prob,
+    morse_prob_at_25,
+    morse_prob_at_45,
+    np,
+    y_true,
+    youden_threshold,
+):
     morse_youden = youden_threshold(y_true, morse_prob)
     epic_youden = youden_threshold(y_true, epic_prob)
     pct_ge70 = float(np.sum(epic_scores >= 70) / len(epic_scores) * 100)
@@ -142,9 +169,21 @@ def _(epic_prob, epic_prob_at_35, epic_prob_at_50, epic_scores, morse_prob, mors
     return epic_youden, morse_youden, pct_ge70
 
 
-# ── Point estimates ───────────────────────────────────────────────────
 @app.cell
-def _(compute_categorical_nri, compute_nri_idi, epic_prob, epic_prob_at_35, epic_prob_at_50, epic_youden, mo, morse_prob, morse_prob_at_25, morse_prob_at_45, morse_youden, y_true):
+def _(
+    compute_categorical_nri,
+    compute_nri_idi,
+    epic_prob,
+    epic_prob_at_35,
+    epic_prob_at_50,
+    epic_youden,
+    mo,
+    morse_prob,
+    morse_prob_at_25,
+    morse_prob_at_45,
+    morse_youden,
+    y_true,
+):
     point_estimates = compute_nri_idi(
         y_true=y_true,
         prob_ref=morse_prob,
@@ -179,12 +218,34 @@ def _(compute_categorical_nri, compute_nri_idi, epic_prob, epic_prob_at_35, epic
         | IDI non-events | {point_estimates['idi_nonevents']:.4f} |
         """
     )
-    return pe_nri_cat_epic35, pe_nri_cat_epic50, pe_nri_cat_epic_youden, pe_nri_cat_mfs25, pe_nri_cat_mfs45, point_estimates
+    return (
+        pe_nri_cat_epic35,
+        pe_nri_cat_epic50,
+        pe_nri_cat_epic_youden,
+        pe_nri_cat_mfs25,
+        pe_nri_cat_mfs45,
+        point_estimates,
+    )
 
 
-# ── Bootstrap CIs (stratified, seed=42, 2000 replicates) ─────────────
 @app.cell
-def _(ALPHA, N_BOOTSTRAP, RANDOM_SEED, compute_categorical_nri, compute_nri_idi, epic_prob, epic_prob_at_35, epic_prob_at_50, epic_youden, morse_prob, morse_prob_at_25, morse_prob_at_45, morse_youden, np, y_true):
+def _(
+    ALPHA,
+    N_BOOTSTRAP,
+    RANDOM_SEED,
+    compute_categorical_nri,
+    compute_nri_idi,
+    epic_prob,
+    epic_prob_at_35,
+    epic_prob_at_50,
+    epic_youden,
+    morse_prob,
+    morse_prob_at_25,
+    morse_prob_at_45,
+    morse_youden,
+    np,
+    y_true,
+):
     """
     Stratified bootstrap: preserve fall_flag ratio in each resample.
     For each replicate, compute NRI/IDI on the bootstrap sample.
@@ -273,13 +334,20 @@ def _(ALPHA, N_BOOTSTRAP, RANDOM_SEED, compute_categorical_nri, compute_nri_idi,
             "ci_lower": float(np.percentile(_arr, _lo_pct)),
             "ci_upper": float(np.percentile(_arr, _hi_pct)),
         }
-
     return (boot_ci,)
 
 
-# ── Assemble Table 3 ──────────────────────────────────────────────────
 @app.cell
-def _(boot_ci, pe_nri_cat_epic35, pe_nri_cat_epic50, pe_nri_cat_epic_youden, pe_nri_cat_mfs25, pe_nri_cat_mfs45, pl, point_estimates):
+def _(
+    boot_ci: dict[str, dict[str, float]],
+    pe_nri_cat_epic35,
+    pe_nri_cat_epic50,
+    pe_nri_cat_epic_youden,
+    pe_nri_cat_mfs25,
+    pe_nri_cat_mfs45,
+    pl,
+    point_estimates,
+):
     # (section, point_estimate_value, boot_key, display_label)
     _sections = [
         # Continuous NRI
@@ -319,12 +387,10 @@ def _(boot_ci, pe_nri_cat_epic35, pe_nri_cat_epic50, pe_nri_cat_epic_youden, pe_
 
 
 @app.cell
-def _(mo, table3):
-    mo.md(
-r"""
-## Table 3. Reclassification Analysis: Epic PMFRS vs Morse Fall Scale
-"""
-    )
+def _(mo):
+    mo.md(r"""
+    ## Table 3. Reclassification Analysis: Epic PMFRS vs Morse Fall Scale
+    """)
     return
 
 
@@ -334,7 +400,6 @@ def _(mo, table3):
     return
 
 
-# ── great-tables rendering ────────────────────────────────────────────
 @app.cell
 def _(mo, pct_ge70, table3):
     try:
@@ -374,10 +439,9 @@ def _(mo, pct_ge70, table3):
         gt_table = mo.md(f"*great-tables rendering unavailable: {_e}*")
 
     gt_table
-    return (gt_table,)
+    return
 
 
-# ── Export CSV ────────────────────────────────────────────────────────
 @app.cell
 def _(Path, mo, table3):
     _out_dir = Path("outputs/tables")

@@ -22,6 +22,15 @@ JAMA_STYLE: dict[str, object] = {
     "savefig.dpi": 300,
     "savefig.bbox": "tight",
     "savefig.pad_inches": 0.1,
+    # Ensure deterministic light backgrounds & dark text (Marimo dark theme
+    # would otherwise inherit white text, making saved PNGs unreadable)
+    "figure.facecolor": "white",
+    "axes.facecolor": "white",
+    "savefig.facecolor": "white",
+    "text.color": "black",
+    "axes.labelcolor": "black",
+    "xtick.color": "black",
+    "ytick.color": "black",
     # Axes
     "axes.linewidth": 0.5,
     "axes.grid": False,
@@ -69,6 +78,9 @@ def save_figure(
     name: str,
     formats: tuple[str, ...] = ("pdf", "png"),
     output_dir: Path = FIGURES_DIR,
+    *,
+    bbox_inches: str | None = "tight",
+    pad_inches: float = 0.1,
 ) -> None:
     """Save figure in multiple formats for JAMA submission.
 
@@ -80,7 +92,7 @@ def save_figure(
             output_dir / f"{name}.{fmt}",
             format=fmt,
             dpi=300,
-            bbox_inches="tight",
-            pad_inches=0.1,
+            bbox_inches=bbox_inches,
+            pad_inches=pad_inches,
         )
     plt.close(fig)

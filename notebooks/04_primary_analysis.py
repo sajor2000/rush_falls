@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
@@ -19,24 +19,21 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # 04 — Primary Discrimination Analysis
+    mo.md("""
+    # 04 — Primary Discrimination Analysis
 
-        **Purpose**: Evaluate and compare discrimination performance of the Epic Predictive
-        Model Fall Risk Score (PMFRS) versus the Morse Fall Scale (MFS) on the analytic cohort.
+    **Purpose**: Evaluate and compare discrimination performance of the Epic Predictive
+    Model Fall Risk Score (PMFRS) versus the Morse Fall Scale (MFS) on the analytic cohort.
 
-        **Outputs**:
-        - Table 2: AUROC, AUPRC, classification metrics, and flag rates at thresholds (CSV + great-tables)
-        - Figure 1: 2×2 multi-panel — sensitivity, specificity, PPV, NPV vs threshold
+    **Outputs**:
+    - Table 2: AUROC, AUPRC, classification metrics, and flag rates at thresholds (CSV + great-tables)
+    - Figure 1: 2×2 multi-panel — sensitivity, specificity, PPV, NPV vs threshold
 
-        **Score timing**: First score at admission (primary analysis per TRIPOD+AI).
-        """
-    )
+    **Score timing**: First score at admission (primary analysis per TRIPOD+AI).
+    """)
     return
 
 
-# ── Imports: utilities ─────────────────────────────────────────────────────
 @app.cell
 def _():
     from utils.constants import (
@@ -85,7 +82,6 @@ def _():
     )
 
 
-# ── 1. Load analytic dataset ───────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     df = pl.read_parquet(Path("data/processed/analytic.parquet"))
@@ -108,7 +104,6 @@ def _(df, mo, pl):
     return
 
 
-# ── 2. Extract arrays at sklearn boundary ──────────────────────────────────
 @app.cell
 def _(df, pl):
     # Defensive: parquet is pre-filtered, but explicit for clarity
@@ -119,10 +114,9 @@ def _(df, pl):
     y_true = df_cc["fall_flag"].to_numpy()
     epic_scores = df_cc["epic_score_admission"].to_numpy()
     morse_scores = df_cc["morse_score_admission"].to_numpy()
-    return df_cc, epic_scores, morse_scores, y_true
+    return epic_scores, morse_scores, y_true
 
 
-# ── 2b. Logistic recalibration: score → probability (for Figure 1) ────
 @app.cell
 def _(epic_scores, logistic_recalibration, morse_scores, y_true):
     epic_prob, epic_lr = logistic_recalibration(epic_scores, y_true)
@@ -130,15 +124,20 @@ def _(epic_scores, logistic_recalibration, morse_scores, y_true):
     return epic_lr, epic_prob, morse_lr, morse_prob
 
 
-# ── 3. AUROC with DeLong CIs ───────────────────────────────────────────────
 @app.cell
 def _(delong_ci, epic_scores, morse_scores, y_true):
     epic_auc, epic_ci_lo, epic_ci_hi = delong_ci(y_true, epic_scores)
     morse_auc, morse_ci_lo, morse_ci_hi = delong_ci(y_true, morse_scores)
-    return epic_auc, epic_ci_hi, epic_ci_lo, morse_auc, morse_ci_hi, morse_ci_lo
+    return (
+        epic_auc,
+        epic_ci_hi,
+        epic_ci_lo,
+        morse_auc,
+        morse_ci_hi,
+        morse_ci_lo,
+    )
 
 
-# ── 4. AUPRC ─────────────────────────────────────────────────────────────
 @app.cell
 def _(epic_scores, morse_scores, y_true):
     from sklearn.metrics import average_precision_score
@@ -148,7 +147,6 @@ def _(epic_scores, morse_scores, y_true):
     return epic_auprc, morse_auprc
 
 
-# ── 5. Paired DeLong test ─────────────────────────────────────────────────
 @app.cell
 def _(delong_roc_test, epic_scores, morse_scores, y_true):
     delong_p = delong_roc_test(y_true, epic_scores, morse_scores)
@@ -156,7 +154,19 @@ def _(delong_roc_test, epic_scores, morse_scores, y_true):
 
 
 @app.cell
-def _(boot_results, delong_p, epic_auc, epic_auprc, epic_ci_hi, epic_ci_lo, mo, morse_auc, morse_auprc, morse_ci_hi, morse_ci_lo):
+def _(
+    boot_results,
+    delong_p,
+    epic_auc,
+    epic_auprc,
+    epic_ci_hi,
+    epic_ci_lo,
+    mo,
+    morse_auc,
+    morse_auprc,
+    morse_ci_hi,
+    morse_ci_lo,
+):
     _epic_auprc_boot = boot_results["auprc_a"]
     _morse_auprc_boot = boot_results["auprc_b"]
     mo.md(
@@ -174,7 +184,6 @@ def _(boot_results, delong_p, epic_auc, epic_auprc, epic_ci_hi, epic_ci_lo, mo, 
     return
 
 
-# ── 6. Threshold selection ────────────────────────────────────────────────
 @app.cell
 def _(
     EPIC_2TIER_HIGH,
@@ -214,7 +223,6 @@ def _(
     epic_t_3tier_medium = float(EPIC_3TIER_MEDIUM)
     epic_t_3tier_high = float(EPIC_3TIER_HIGH)
     epic_t_2tier_high = float(EPIC_2TIER_HIGH)
-
     return (
         epic_t_2tier_high,
         epic_t_3tier_high,
@@ -234,7 +242,6 @@ def _(
     )
 
 
-# ── 6b. Probability equivalents at standard + Rush-optimal cutoffs ────────
 @app.cell
 def _(
     EPIC_2TIER_HIGH,
@@ -290,7 +297,6 @@ def _(
     return
 
 
-# ── 7. Classification metrics at each threshold ───────────────────────────
 @app.cell
 def _(
     classification_metrics_at_threshold,
@@ -352,13 +358,18 @@ def _(
         _m = classification_metrics_at_threshold(y_true, _score_arr, _t)
         _m["label"] = _label
         morse_metrics_by_threshold.append(_m)
-
     return epic_metrics_by_threshold, morse_metrics_by_threshold
 
 
-# ── 8. Bootstrap CIs for classification metrics ───────────────────────────
 @app.cell
-def _(N_BOOTSTRAP, RANDOM_SEED, epic_scores, morse_scores, stratified_bootstrap, y_true):
+def _(
+    N_BOOTSTRAP,
+    RANDOM_SEED,
+    epic_scores,
+    morse_scores,
+    stratified_bootstrap,
+    y_true,
+):
     boot_results = stratified_bootstrap(
         y_true, epic_scores, pred_b=morse_scores, n_boot=N_BOOTSTRAP, seed=RANDOM_SEED
     )
@@ -390,7 +401,6 @@ def _(boot_results, mo):
     return
 
 
-# ── 9. Build Table 2 as Polars DataFrame ──────────────────────────────────
 @app.cell
 def _(
     boot_results,
@@ -399,12 +409,12 @@ def _(
     epic_auprc,
     epic_ci_hi,
     epic_ci_lo,
-    epic_metrics_by_threshold,
+    epic_metrics_by_threshold: list[dict],
     morse_auc,
     morse_auprc,
     morse_ci_hi,
     morse_ci_lo,
-    morse_metrics_by_threshold,
+    morse_metrics_by_threshold: list[dict],
     pl,
 ):
     def _fmt_ci(est: float, lo: float, hi: float, decimals: int = 3) -> str:
@@ -518,7 +528,6 @@ def _(mo, table2_df):
     return
 
 
-# ── 10. Export Table 2 CSV ────────────────────────────────────────────────
 @app.cell
 def _(Path, mo, table2_df):
     _out_dir = Path("outputs/tables")
@@ -529,7 +538,6 @@ def _(Path, mo, table2_df):
     return
 
 
-# ── 11. Render Table 2 with great-tables ─────────────────────────────────
 @app.cell
 def _(table2_df):
     from great_tables import GT, loc, style
@@ -568,7 +576,7 @@ def _(table2_df):
             columns=["AUROC (95% CI)", "AUPRC (95% CI)", "DeLong p"],
         )
         .cols_label(
-            **{
+            cases={
                 "Threshold label": "Threshold method",
                 "Threshold value": "Cut-point",
                 "Sensitivity, %": "Sensitivity",
@@ -604,20 +612,17 @@ def _(table2_df):
         )
     )
     gt_table2
-    return (gt_table2,)
+    return
 
 
-# ── 12. Figure 1: 2×2 multi-panel discrimination plot ────────────────────
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        ## Figure 1: Sensitivity, Specificity, PPV, NPV across thresholds
+    mo.md("""
+    ## Figure 1: Sensitivity, Specificity, PPV, NPV across thresholds
 
-        Epic (blue #2166AC) vs Morse (red #B2182B). Thresholds derived from `roc_curve`.
-        Panel layout: 2 rows × 2 columns. Full-width 7.0 × 8.0 in.
-        """
-    )
+    Epic (blue #2166AC) vs Morse (red #B2182B). Thresholds derived from `roc_curve`.
+    Panel layout: 2 rows × 2 columns. Full-width 7.0 × 8.0 in.
+    """)
     return
 
 
@@ -668,7 +673,7 @@ def _(
     # ── Build figure ──────────────────────────────────────────────────
     with matplotlib.rc_context(JAMA_STYLE):
         _fig, _axes = plt.subplots(2, 2, figsize=FIG_MULTI_PANEL)
-        _fig.subplots_adjust(hspace=0.42, wspace=0.38)
+        _fig.subplots_adjust(hspace=0.42, wspace=0.38, bottom=0.08)
 
         _panels = [
             ("Sensitivity", _epic_sens, _morse_sens),
@@ -722,32 +727,30 @@ def _(
             ncol=2,
             fontsize=8,
             frameon=False,
-            bbox_to_anchor=(0.5, -0.01),
+            bbox_to_anchor=(0.5, -0.04),
         )
 
         _fig.text(
-            0.5, -0.06,
+            0.5, -0.10,
             "Figure 1. Classification metrics across score thresholds:\n"
             "Epic PMFRS vs Morse Fall Scale",
             ha="center", va="top", fontsize=10, fontweight="bold",
         )
 
-        save_figure(_fig, "figure1_discrimination")
+        save_figure(_fig, "figure1_discrimination", bbox_inches=None, pad_inches=0.15)
 
     figure1_fig = _fig
-    return figure1_fig,
+    return
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        **Figure 1 saved** to `outputs/figures/figure1_discrimination.pdf` and `.png`.
+    mo.md("""
+    **Figure 1 saved** to `outputs/figures/figure1_discrimination.pdf` and `.png`.
 
-        Legend placed below the panels; no data is obscured. Axis labels in sentence case
-        per JAMA format. Minimum 8 pt text throughout.
-        """
-    )
+    Legend placed below the panels; no data is obscured. Axis labels in sentence case
+    per JAMA format. Minimum 8 pt text throughout.
+    """)
     return
 
 

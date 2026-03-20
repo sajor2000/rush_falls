@@ -30,13 +30,6 @@ COLUMN_RENAME_MAP: dict[str, str] = {
     "morse_median": "morse_score_median",
 }
 
-# ── Accommodation codes classified as inpatient ─────────────────────
-INPATIENT_CODES: set[str] = {
-    "Inpatient",
-    "Inpatient-Admit PRIOR To Surgery",
-    "Inpatient-Admit After Surgery",
-}
-
 # ── Label cleaning maps (for figures / tables) ─────────────────────
 RACE_CLEAN_MAP: dict[str, str] = {
     "White": "White",

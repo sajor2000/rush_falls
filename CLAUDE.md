@@ -61,9 +61,9 @@ All columns standardized to lowercase. Mapping from raw export (`output_table_v4
 - Minimum age: 18
 - Missing Epic admission scores: 229 (0.26%), 0 fallers
 - Missing Morse admission scores: 416 (0.49%), 1 faller
-- Obs/outpatient encounters missing discharge department: to be excluded
-- Complete case cohort (both scores present): ~84,800 encounters, ~860 events
-- **Post-exclusion analytic cohort**: 63,324 encounters, 803 falls (1.27%)
+- All encounters are from inpatient-admitted patients regardless of billing accommodation code (confirmed by data team)
+- Complete case cohort (both scores present): exact counts computed dynamically in pipeline
+- **Post-exclusion analytic cohort**: computed dynamically after excluding age <18, missing discharge dept, and missing scores
 
 **Epic Score Profile** (admission, analytic cohort):
 - dtype: Float64 (continuous, **not** integer despite model brief stating "integer score 0–100")
@@ -305,6 +305,7 @@ Mapped to Wong et al. JAMA Network Open 2026:
 | **eTable 7** | DCA net benefit at selected threshold probabilities | `06_decision_curve.py` |
 | **eTable 8** | Fairness audit: stratified by gender | `09_fairness_audit.py` |
 | **eTable 9** | Literature benchmarking: MFS validation studies | `13_master_report.py` |
+| **eTable 10** | Classification metrics by score timing | `10_sensitivity_analyses.py` |
 | **Notebook 12** | Aggregate report — collects key results from all notebooks | `12_report.py` |
 | **Notebook 13** | Master report — full pipeline reproduction in one notebook | `13_master_report.py` |
 
@@ -497,6 +498,33 @@ def save_figure(fig, name, formats=("pdf", "png")):
 - Export as vector PDF (primary) + 300 DPI PNG (backup), each < 1 MB
 - After generating a figure, visually inspect the output image to verify no overlap or blocked data
 
+**Figure layout rules** (mandatory for all figures with below-axes elements):
+
+Every figure that has a caption below the axes MUST follow this pattern:
+```python
+fig.subplots_adjust(bottom=0.22)                           # Reserve space
+fig.legend(..., bbox_to_anchor=(0.5, -Y_LEGEND), ...)      # Y_LEGEND >= 0.06
+fig.text(0.5, -(Y_LEGEND + 0.06), "Caption...", ...)       # At least 0.06 below legend
+save_figure(fig, name, bbox_inches=None, pad_inches=0.15)  # NEVER use bbox_inches="tight"
+```
+
+- **NEVER use `bbox_inches="tight"` when `fig.text()` or `fig.legend()` is placed in negative y-space** — it clips elements outside the axes. Always pass `bbox_inches=None, pad_inches=0.15` to `save_figure()`.
+- **NEVER use `tight_layout()` combined with manual element positioning** — `tight_layout()` overrides `subplots_adjust()` and invalidates manually placed legends/captions. Use `subplots_adjust()` exclusively.
+- **Maintain >= 0.06 gap** in figure coordinates between the legend `bbox_to_anchor` y-position and the caption `fig.text()` y-position.
+- **Use collision avoidance for annotation labels** when multiple threshold lines cluster together:
+  ```python
+  _placed_y = []
+  for _t, _lbl in _thresholds:
+      _y_pos = ax.get_ylim()[1] * 0.85
+      for _py in _placed_y:
+          if abs(_y_pos - _py) < ax.get_ylim()[1] * 0.15:
+              _y_pos -= ax.get_ylim()[1] * 0.15
+      ax.text(_t + 1, _y_pos, label_text, ...)
+      _placed_y.append(_y_pos)
+  ```
+- **If a figure exists in both an individual notebook AND `13_master_report.py`, both copies MUST use identical spacing values.** When editing figure layout in one file, always sync the other.
+- **After saving, visually inspect the PNG output** — check all four edges for clipped text, verify legends do not overlap captions, confirm annotation labels do not collide.
+
 ---
 
 ## Code Organization
@@ -640,6 +668,11 @@ Before implementing certain notebooks, these questions need answers from the dat
 - Figure widths: 3.5in (single column) or 7.0in (full width)
 - Each file < 1 MB
 - Visually inspect every figure for text overlap before presenting
+- **ALWAYS** pass `bbox_inches=None, pad_inches=0.15` to `save_figure()` when the figure has `fig.text()` or `fig.legend()` placed below the axes — `bbox_inches="tight"` clips these elements
+- **NEVER** use `tight_layout()` on figures with manually positioned legends or captions — use `subplots_adjust()` instead
+- Maintain >= 0.06 figure-coordinate gap between legend and caption y-positions
+- Use collision avoidance (track placed y-positions, stagger if overlapping) when multiple annotation labels cluster together
+- When editing figure layout in any individual notebook, always sync the same values to the corresponding section in `13_master_report.py`
 
 ### Code Style
 - Prefer direct, concise code. No unnecessary abstraction.

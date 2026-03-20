@@ -1,15 +1,16 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _():
-    import marimo as mo
-    import polars as pl
-    import numpy as np
     from pathlib import Path
+
+    import marimo as mo
+    import numpy as np
+    import polars as pl
     from scipy import stats
 
     return Path, mo, np, pl, stats
@@ -17,29 +18,26 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # Table 1 — Patient Characteristics by Fall Status
+    mo.md("""
+    # Table 1 — Patient Characteristics by Fall Status
 
-        Stratified descriptive statistics for the complete-case analytic cohort
-        (Epic PMFRS and Morse Fall Scale admission scores both present).
+    Stratified descriptive statistics for the complete-case analytic cohort
+    (Epic PMFRS and Morse Fall Scale admission scores both present).
 
-        - Continuous (normal): mean \u00b1 SD — age
-        - Continuous (skewed): median [IQR] — los_days
-        - Categorical: n (%) — gender, race, ethnicity
-        - Scores: mean \u00b1 SD for all score columns
-        - Standardized mean difference (SMD) for each variable
-        - P-values: two-sample t-test (age, scores), Wilcoxon rank-sum (los_days),
-          chi-square (categorical)
+    - Continuous (normal): mean ± SD — age
+    - Continuous (skewed): median [IQR] — los_days
+    - Categorical: n (%) — gender, race, ethnicity
+    - Scores: mean ± SD for all score columns
+    - Standardized mean difference (SMD) for each variable
+    - P-values: two-sample t-test (age, scores), Wilcoxon rank-sum (los_days),
+      chi-square (categorical)
 
-        **Input**: `data/processed/analytic.parquet`
-        **Output**: `outputs/tables/table1.csv`
-        """
-    )
+    **Input**: `data/processed/analytic.parquet`
+    **Output**: `outputs/tables/table1.csv`
+    """)
     return
 
 
-# ── 1. Load analytic cohort ─────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     _path = Path("data/processed/analytic.parquet")
@@ -66,10 +64,9 @@ def _(df, mo, pl):
     return
 
 
-# ── 2. Helper functions ─────────────────────────────────────────────
 @app.cell
 def _(np, pl, stats):
-    def smd_continuous(s1: pl.Series, s2: pl.Series) -> float:
+    def smd_continuous(s1, s2) -> float:
         """Cohen's d-style SMD for two continuous groups."""
         _m1, _sd1 = s1.mean(), s1.std()
         _m2, _sd2 = s2.mean(), s2.std()
@@ -78,7 +75,7 @@ def _(np, pl, stats):
         _pooled = np.sqrt((_sd1**2 + _sd2**2) / 2)
         return float(abs(_m1 - _m2) / _pooled) if _pooled > 0 else float("nan")
 
-    def smd_categorical(df_grp: pl.DataFrame, col: str) -> float:
+    def smd_categorical(df_grp, col: str) -> float:
         """SMD for a binary/categorical variable using proportions.
 
         For multi-category variables, uses the maximum pairwise proportion
@@ -100,7 +97,7 @@ def _(np, pl, stats):
                 _smds.append(abs(_p1 - _p0) / _denom)
         return float(np.max(_smds)) if _smds else float("nan")
 
-    def ttest_p(s1: pl.Series, s2: pl.Series) -> float:
+    def ttest_p(s1, s2) -> float:
         """Welch two-sample t-test p-value."""
         _a = s1.drop_nulls().to_numpy()
         _b = s2.drop_nulls().to_numpy()
@@ -108,7 +105,7 @@ def _(np, pl, stats):
             return float("nan")
         return float(stats.ttest_ind(_a, _b, equal_var=False).pvalue)
 
-    def wilcoxon_p(s1: pl.Series, s2: pl.Series) -> float:
+    def wilcoxon_p(s1, s2) -> float:
         """Wilcoxon rank-sum (Mann-Whitney U) p-value."""
         _a = s1.drop_nulls().to_numpy()
         _b = s2.drop_nulls().to_numpy()
@@ -116,7 +113,7 @@ def _(np, pl, stats):
             return float("nan")
         return float(stats.mannwhitneyu(_a, _b, alternative="two-sided").pvalue)
 
-    def chisq_p(df_grp: pl.DataFrame, col: str) -> float:
+    def chisq_p(df_grp, col: str) -> float:
         """Chi-square test of independence p-value."""
         _ct = (
             df_grp.group_by(["fall_flag", col])
@@ -155,7 +152,6 @@ def _(np, pl, stats):
     )
 
 
-# ── 3. Split into fall / no-fall groups ────────────────────────────
 @app.cell
 def _(df, pl):
     df_fall = df.filter(pl.col("fall_flag") == 1)
@@ -166,24 +162,23 @@ def _(df, pl):
     return df_fall, df_nofall, n_fall, n_nofall, n_total
 
 
-# ── 4. Build Table 1 rows ───────────────────────────────────────────
 @app.cell
 def _(
     chisq_p,
-    fmt_pval,
-    fmt_smd,
-    smd_categorical,
-    smd_continuous,
-    ttest_p,
-    wilcoxon_p,
     df,
     df_fall,
     df_nofall,
+    fmt_pval,
+    fmt_smd,
     n_fall,
     n_nofall,
     n_total,
     np,
     pl,
+    smd_categorical,
+    smd_continuous,
+    ttest_p,
+    wilcoxon_p,
 ):
     _rows: list[dict] = []
 
@@ -330,9 +325,8 @@ def _(
     return (table1_df,)
 
 
-# ── 5. Display with column-header annotations ────────────────────────
 @app.cell
-def _(mo, n_fall, n_nofall, n_total, table1_df):
+def _(mo, n_fall, n_nofall, n_total):
     mo.md(
         f"""
         ## Table 1. Patient Characteristics by Fall Status
@@ -356,7 +350,6 @@ def _(mo, table1_df):
     return
 
 
-# ── 6. Render with great-tables ─────────────────────────────────────
 @app.cell
 def _(n_fall, n_nofall, n_total, table1_df):
     from great_tables import GT, loc, style
@@ -372,7 +365,7 @@ def _(n_fall, n_nofall, n_total, table1_df):
             ),
         )
         .cols_label(
-            **{
+            cases={
                 "Variable": "Variable",
                 "Overall": f"Overall\n(N\u202f=\u202f{n_total:,})",
                 "No fall": f"No fall\n(n\u202f=\u202f{n_nofall:,})",
@@ -413,10 +406,9 @@ def _(n_fall, n_nofall, n_total, table1_df):
     )
 
     _gt
-    return (_gt,)
+    return
 
 
-# ── 7. Export CSV ───────────────────────────────────────────────────
 @app.cell
 def _(Path, mo, table1_df):
     _out_dir = Path("outputs/tables")

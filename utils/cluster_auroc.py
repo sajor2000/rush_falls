@@ -534,10 +534,7 @@ def _bca_interval(
     jack_diff = jack_mean - jack_deltas
 
     denom = np.sum(jack_diff**2) ** 1.5
-    if denom < 1e-12:
-        a_hat = 0.0
-    else:
-        a_hat = np.sum(jack_diff**3) / (6.0 * denom)
+    a_hat = 0.0 if denom < 1e-12 else np.sum(jack_diff**3) / (6.0 * denom)
 
     # Adjusted percentiles
     z_alpha_lo = stats.norm.ppf(alpha / 2)

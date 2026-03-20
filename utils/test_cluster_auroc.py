@@ -5,20 +5,18 @@ the rushfalla study structure.
 Run: python utils/test_cluster_auroc.py
 """
 import sys
+
 import numpy as np
 
 # Ensure the parent directory is on the path
 sys.path.insert(0, ".")
 
 from utils.cluster_auroc import (
-    naive_delong_comparison,
-    naive_delong_single,
-    cluster_bootstrap_auroc_comparison,
     cluster_bootstrap_auroc_single,
     estimate_design_effect,
-    first_encounter_comparison,
-    run_sensitivity_comparison,
     format_for_manuscript,
+    naive_delong_single,
+    run_sensitivity_comparison,
 )
 
 

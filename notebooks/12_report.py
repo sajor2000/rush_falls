@@ -1,6 +1,6 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
@@ -17,19 +17,16 @@ def _():
 
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        # Validation of the Epic Predictive Model Fall Risk Score vs the Morse Fall Scale for Inpatient Fall Prediction
+    mo.md(r"""
+    # Validation of the Epic Predictive Model Fall Risk Score vs the Morse Fall Scale for Inpatient Fall Prediction
 
-        **Study Design**: Single-center retrospective validation (TRIPOD Type 3)
-        **Setting**: Rush University Medical Center
-        **Target Journal**: JAMA Network Open
-        """
-    )
+    **Study Design**: Single-center retrospective validation (TRIPOD Type 3)
+    **Setting**: Rush University Medical Center
+    **Target Journal**: JAMA Network Open
+    """)
     return
 
 
-# ── Key results ────────────────────────────────────────────────────
 @app.cell
 def _(Path, json, mo):
     results_path = Path("outputs/tables/sensitivity_key_results.json")
@@ -62,7 +59,6 @@ def _(Path, json, mo):
     return key_results, n_enc, n_falls
 
 
-# ── Table 1: Patient Characteristics ──────────────────────────────
 @app.cell
 def _(Path, mo, pl):
     table1_path = Path("outputs/tables/table1.csv")
@@ -80,7 +76,6 @@ def _(mo, table1_df):
     return
 
 
-# ── Table 2: Primary Discrimination ──────────────────────────────
 @app.cell
 def _(Path, mo, pl):
     table2_path = Path("outputs/tables/table2.csv")
@@ -98,7 +93,6 @@ def _(mo, table2_df):
     return
 
 
-# ── Table 3: Reclassification ────────────────────────────────────
 @app.cell
 def _(Path, mo, pl):
     table3_path = Path("outputs/tables/table3.csv")
@@ -116,7 +110,6 @@ def _(mo, table3_df):
     return
 
 
-# ── Figure 1: Multi-panel discrimination ─────────────────────────
 @app.cell
 def _(Path, mo):
     fig1_path = Path("outputs/figures/figure1_discrimination.png")
@@ -128,7 +121,6 @@ def _(Path, mo):
     return
 
 
-# ── Figure 2: Dot plot ────────────────────────────────────────────
 @app.cell
 def _(Path, mo):
     fig2_path = Path("outputs/figures/figure2_dot_plot.png")
@@ -140,7 +132,6 @@ def _(Path, mo):
     return
 
 
-# ── Figure 3: Decision curve analysis ────────────────────────────
 @app.cell
 def _(Path, mo):
     fig3_path = Path("outputs/figures/figure3_dca.png")
@@ -152,7 +143,6 @@ def _(Path, mo):
     return
 
 
-# ── eFigure 1: Calibration (Epic) ────────────────────────────────
 @app.cell
 def _(Path, mo):
     efig1_path = Path("outputs/figures/efigure1_calibration_epic.png")
@@ -164,7 +154,6 @@ def _(Path, mo):
     return
 
 
-# ── eFigure 2: Calibration (Morse) ───────────────────────────────
 @app.cell
 def _(Path, mo):
     efig2_path = Path("outputs/figures/efigure2_calibration_morse.png")
@@ -176,7 +165,6 @@ def _(Path, mo):
     return
 
 
-# ── eFigure 3: Threshold overlay ─────────────────────────────────
 @app.cell
 def _(Path, mo):
     efig3_path = Path("outputs/figures/efigure3_threshold_overlay.png")
@@ -188,7 +176,6 @@ def _(Path, mo):
     return
 
 
-# ── eFigure 4: Cohort flow ───────────────────────────────────────
 @app.cell
 def _(Path, mo):
     efig4_path = Path("outputs/figures/efigure4_cohort_flow.png")
@@ -200,7 +187,6 @@ def _(Path, mo):
     return
 
 
-# ── eFigure 5: Score distributions ──────────────────────────────
 @app.cell
 def _(Path, mo):
     efig5_path = Path("outputs/figures/efigure5_score_distributions.png")
@@ -212,7 +198,6 @@ def _(Path, mo):
     return
 
 
-# ── eTable 1: Age ────────────────────────────────────────────────
 @app.cell
 def _(Path, mo, pl):
     etable1_path = Path("outputs/tables/etable1_age.csv")
@@ -230,7 +215,6 @@ def _(etable1_df, mo):
     return
 
 
-# ── eTable 2: Race/Ethnicity ─────────────────────────────────────
 @app.cell
 def _(Path, mo, pl):
     etable2_path = Path("outputs/tables/etable2_race.csv")
@@ -248,7 +232,6 @@ def _(etable2_df, mo):
     return
 
 
-# ── eTable 3: Unit Type ──────────────────────────────────────────
 @app.cell
 def _(Path, mo, pl):
     etable3_path = Path("outputs/tables/etable3_unit.csv")
@@ -266,7 +249,6 @@ def _(etable3_df, mo):
     return
 
 
-# ── eTable 4: Sensitivity Analyses ───────────────────────────────
 @app.cell
 def _(Path, mo, pl):
     etable4_path = Path("outputs/tables/etable4_sensitivity.csv")
@@ -284,7 +266,6 @@ def _(etable4_sens_df, mo):
     return
 
 
-# ── eTable 9: Literature Benchmarking ────────────────────────────
 @app.cell
 def _(Path, mo, pl):
     etable9_path = Path("outputs/tables/etable9_literature_benchmarking.csv")
@@ -302,7 +283,23 @@ def _(etable9_df, mo):
     return
 
 
-# ── Interpretation ────────────────────────────────────────────────
+@app.cell
+def _(Path, mo, pl):
+    etable10_path = Path("outputs/tables/etable10_timing_classification.csv")
+    mo.stop(not etable10_path.exists(), mo.md("*eTable 10 not found — run `10_sensitivity_analyses.py` first.*"))
+    etable10_df = pl.read_csv(etable10_path)
+    return (etable10_df,)
+
+
+@app.cell
+def _(etable10_df, mo):
+    mo.vstack([
+        mo.md("## eTable 10 — Classification Metrics Across Score Timing Strategies"),
+        mo.ui.table(etable10_df),
+    ])
+    return
+
+
 @app.cell
 def _(key_results, mo, n_enc, n_falls):
     _epic_auroc = key_results.get("primary_epic_auroc", "N/A")
@@ -319,10 +316,12 @@ def _(key_results, mo, n_enc, n_falls):
         Scale an AUROC of {_morse_auroc} for predicting inpatient falls using
         admission scores (paired DeLong p {'= ' if not str(_delong_p).startswith('<') else ''}{_delong_p}).
         These AUROCs are consistent with prospective cohort studies at comparable
-        prevalence (Ji 2023: 0.63; Shim 2022: 0.65; Lohse 2021: 0.64). Higher
-        published MFS AUROCs (0.76–0.86) arise from case-control designs or
-        max-score analyses that inflate accuracy (Haines 2007). See eTable 9 for
-        the full literature benchmarking comparison.
+        prevalence (Ji 2023: 0.63; Shim 2022: 0.65; Lohse 2021: 0.64; Jiang 2025:
+        0.825 at 0.10% prevalence). Higher published MFS AUROCs (0.76–0.86) arise
+        from case-control designs or max-score analyses that inflate accuracy
+        (Haines 2007). No peer-reviewed publications of the Epic PMFRS exist;
+        Epic validation data are from the unpublished model brief. See eTable 9
+        for the full literature benchmarking comparison.
 
         ### Clinical Implications
         At {_prev_pct}% fall prevalence, both models generate substantial false positives.
@@ -353,34 +352,30 @@ def _(key_results, mo, n_enc, n_falls):
     return
 
 
-# ── Methods summary ───────────────────────────────────────────────
 @app.cell
 def _(mo):
-    mo.md(
-        r"""
-        ## Methods Summary
+    mo.md(r"""
+    ## Methods Summary
 
-        | Parameter | Specification |
-        |---|---|
-        | Study type | TRIPOD Type 3 (external temporal validation) |
-        | Unit of analysis | Encounter (clustered by patient) |
-        | Primary predictor timing | First score at admission |
-        | Primary comparison | Paired DeLong test (AUROC) |
-        | Bootstrap | 2,000 stratified resamples (BCa), seed = 42 |
-        | Clustering adjustment | GEE (exchangeable, robust SE) |
-        | Calibration | LOWESS (frac = 0.3) with spike/rug plot |
-        | Threshold methods | Youden, closest-to-(0,1), fixed sensitivity (60%, 80%), value-optimizing (NMB), DCA-derived |
-        | Reclassification | Event NRI and non-event NRI reported separately (Pepe 2015) |
-        | Fairness | Stratified by age, race/ethnicity, gender, unit type |
-        | Min subgroup events | 20 falls (below = unreliable) |
-        | Alpha | 0.05, two-sided |
-        | Reporting standard | TRIPOD+AI (Collins et al. BMJ 2024) |
-        """
-    )
+    | Parameter | Specification |
+    |---|---|
+    | Study type | TRIPOD Type 3 (external temporal validation) |
+    | Unit of analysis | Encounter (clustered by patient) |
+    | Primary predictor timing | First score at admission |
+    | Primary comparison | Paired DeLong test (AUROC) |
+    | Bootstrap | 2,000 stratified resamples (BCa), seed = 42 |
+    | Clustering adjustment | GEE (exchangeable, robust SE) |
+    | Calibration | LOWESS (frac = 0.3) with spike/rug plot |
+    | Threshold methods | Youden, closest-to-(0,1), fixed sensitivity (60%, 80%), value-optimizing (NMB), DCA-derived |
+    | Reclassification | Event NRI and non-event NRI reported separately (Pepe 2015) |
+    | Fairness | Stratified by age, race/ethnicity, gender, unit type |
+    | Min subgroup events | 20 falls (below = unreliable) |
+    | Alpha | 0.05, two-sided |
+    | Reporting standard | TRIPOD+AI (Collins et al. BMJ 2024) |
+    """)
     return
 
 
-# ── Output inventory ──────────────────────────────────────────────
 @app.cell
 def _(Path, mo):
     figures_dir = Path("outputs/figures")
@@ -407,12 +402,13 @@ def _(Path, mo):
         "etable4_sensitivity.csv",
         "etable8_gender.csv",
         "etable9_literature_benchmarking.csv",
-        "calibration_summary.csv",
+        "etable10_timing_classification.csv",
+        "etable5_calibration_summary.csv",
         "dca_threshold_ranges.json",
         "efigure4_cohort_flow_counts.csv",
-        "figure3_dca_net_benefit.csv",
-        "threshold_summary.csv",
-        "flag_rate_summary.csv",
+        "etable7_dca_net_benefit.csv",
+        "etable6_threshold_methods.csv",
+        "etable6_flag_rate_summary.csv",
         "sensitivity_key_results.json",
     ]
 

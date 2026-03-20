@@ -8,34 +8,34 @@ Also generates score distribution histograms with flag rate annotations.
 Inputs:  data/processed/analytic.parquet
 Outputs: outputs/figures/efigure3_threshold_overlay.pdf/.png
          outputs/figures/efigure5_score_distributions.pdf/.png
-         outputs/tables/flag_rate_summary.csv
+         outputs/tables/etable6_flag_rate_summary.csv
 """
+
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-r"""
-# eFigure 3. Threshold Method Comparison
+    mo.md(r"""
+    # eFigure 3. Threshold Method Comparison
 
-Seven threshold selection methods overlaid on ROC curves for Epic PMFRS
-(left panel) and Morse Fall Scale (right panel). Each dot marks the
-operating point — sensitivity/1-specificity — achieved by that method.
+    Seven threshold selection methods overlaid on ROC curves for Epic PMFRS
+    (left panel) and Morse Fall Scale (right panel). Each dot marks the
+    operating point — sensitivity/1-specificity — achieved by that method.
 
-Methods compared: Youden index, closest-to-(0,1), fixed sensitivity at
-60% and 80%, value-optimizing NMB, and standard MFS cutoffs (25 and 45).
-"""
-    )
+    Methods compared: Youden index, closest-to-(0,1), fixed sensitivity at
+    60% and 80%, value-optimizing NMB, and standard MFS cutoffs (25 and 45).
+    """)
     return
 
 
@@ -48,6 +48,7 @@ def _():
     import numpy as np
     import polars as pl
     from sklearn.metrics import roc_curve
+
     return Path, mpatches, np, pl, plt, roc_curve
 
 
@@ -69,6 +70,7 @@ def _():
         youden_threshold,
     )
     from utils.plotting import COLORS, JAMA_STYLE, save_figure
+
     return (
         COLORS,
         EPIC_2TIER_HIGH,
@@ -87,7 +89,6 @@ def _():
     )
 
 
-# ── Load data ─────────────────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     _path = Path("data/processed/analytic.parquet")
@@ -103,7 +104,6 @@ def _(df):
     return epic_score, morse_score, y_true
 
 
-# ── Recalibrate scores → probabilities (needed for value-optimizing) ─
 @app.cell
 def _(epic_score, logistic_recalibration, morse_score, y_true):
     epic_prob, _ = logistic_recalibration(epic_score, y_true)
@@ -111,7 +111,6 @@ def _(epic_score, logistic_recalibration, morse_score, y_true):
     return epic_prob, morse_prob
 
 
-# ── Compute all threshold methods ────────────────────────────────────
 @app.cell
 def _(
     EPIC_2TIER_HIGH,
@@ -187,7 +186,6 @@ def _(
     return epic_thresholds, morse_thresholds
 
 
-# ── ROC curve arrays ──────────────────────────────────────────────────
 @app.cell
 def _(epic_score, morse_score, roc_curve, y_true):
     fpr_epic, tpr_epic, _ = roc_curve(y_true, epic_score)
@@ -195,7 +193,6 @@ def _(epic_score, morse_score, roc_curve, y_true):
     return fpr_epic, fpr_morse, tpr_epic, tpr_morse
 
 
-# ── eFigure 3: Two-panel threshold overlay ────────────────────────────
 @app.cell
 def _(
     COLORS,
@@ -203,8 +200,8 @@ def _(
     epic_thresholds,
     fpr_epic,
     fpr_morse,
-    mpatches,
     morse_thresholds,
+    mpatches,
     plt,
     save_figure,
     tpr_epic,
@@ -225,7 +222,7 @@ def _(
     }
 
     with plt.rc_context(JAMA_STYLE):
-        fig_ef3, (ax_e, ax_m) = plt.subplots(1, 2, figsize=(7.0, 4.0))
+        fig_ef3, (ax_e, ax_m) = plt.subplots(1, 2, figsize=(7.0, 4.3))
 
         for _ax, _model_label, _color, _fpr, _tpr, _thresholds in [
             (ax_e, "Epic PMFRS", COLORS["epic"], fpr_epic, tpr_epic, epic_thresholds),
@@ -289,18 +286,26 @@ def _(
         fig_ef3.subplots_adjust(wspace=0.35, bottom=0.28)
 
         fig_ef3.text(
-            0.5, -0.16,
+            0.5,
+            -0.14,
             "eFigure 3. Threshold method operating points on ROC curves:\n"
             "Epic PMFRS vs Morse Fall Scale",
-            ha="center", va="top", fontsize=10, fontweight="bold",
+            ha="center",
+            va="top",
+            fontsize=10,
+            fontweight="bold",
         )
 
-    save_figure(fig_ef3, "efigure3_threshold_overlay")
+    save_figure(
+        fig_ef3,
+        "efigure3_threshold_overlay",
+        bbox_inches=None,
+        pad_inches=0.15,
+    )
     fig_ef3
-    return (fig_ef3,)
+    return
 
 
-# ── Summary table: all thresholds with classification metrics ─────────
 @app.cell
 def _(epic_thresholds, mo, morse_thresholds, pl):
     _rows = []
@@ -337,7 +342,6 @@ def _(mo, threshold_summary):
     return
 
 
-# ── GT rendering: threshold summary table ────────────────────────────
 @app.cell
 def _(threshold_summary):
     from great_tables import GT, loc, style
@@ -357,7 +361,7 @@ def _(threshold_summary):
             columns=["TP", "FP", "FN", "TN"],
         )
         .cols_label(
-            **{
+            cases={
                 "Method": "Method",
                 "Threshold": "Cut-point",
                 "Score space": "Score space",
@@ -385,29 +389,25 @@ def _(threshold_summary):
     return
 
 
-# ── Export threshold summary CSV ─────────────────────────────────────
 @app.cell
 def _(Path, mo, threshold_summary):
     _out_dir = Path("outputs/tables")
     _out_dir.mkdir(parents=True, exist_ok=True)
-    _csv_path = _out_dir / "threshold_summary.csv"
+    _csv_path = _out_dir / "etable6_threshold_methods.csv"
     threshold_summary.write_csv(_csv_path)
     mo.md(f"**Saved**: `{_csv_path}` ({threshold_summary.height} rows)")
     return
 
 
-# ── eFigure 5: Score distribution with threshold overlay (flag rate) ──
 @app.cell
 def _(mo):
-    mo.md(
-r"""
-## eFigure 5. Score Distributions and Flag Rates
+    mo.md(r"""
+    ## eFigure 5. Score Distributions and Flag Rates
 
-Histograms of admission scores with standard threshold lines overlaid.
-Annotations show the percentage of encounters flagged at each threshold
-(= flag rate), demonstrating alert burden implications.
-"""
-    )
+    Histograms of admission scores with standard threshold lines overlaid.
+    Annotations show the percentage of encounters flagged at each threshold
+    (= flag rate), demonstrating alert burden implications.
+    """)
     return
 
 
@@ -431,7 +431,7 @@ def _(
         return float(np.sum(scores >= threshold) / len(scores) * 100)
 
     with plt.rc_context(JAMA_STYLE):
-        fig_dist, (ax_epic, ax_morse) = plt.subplots(1, 2, figsize=(7.0, 3.5))
+        fig_dist, (ax_epic, ax_morse) = plt.subplots(1, 2, figsize=(7.0, 4.0))
 
         # ── Epic panel ──────────────────────────────────────────────
         ax_epic.hist(
@@ -458,13 +458,19 @@ def _(
             (float(EPIC_2TIER_HIGH), "≥50\n(2-tier)"),
             (float(EPIC_3TIER_HIGH), "≥70\n(3-tier high)"),
         ]
+        _placed_y_epic = []
         for _t, _lbl in _epic_thresholds:
             _fr = _flag_rate(epic_score, _t)
             ax_epic.axvline(_t, color="#333333", linewidth=0.8, linestyle="--", zorder=3)
+            _y_pos = ax_epic.get_ylim()[1] * 0.85
+            for _py in _placed_y_epic:
+                if abs(_y_pos - _py) < ax_epic.get_ylim()[1] * 0.15:
+                    _y_pos -= ax_epic.get_ylim()[1] * 0.15
             ax_epic.text(
-                _t + 1, ax_epic.get_ylim()[1] * 0.85, f"{_lbl}\n{_fr:.1f}% flagged",
+                _t + 1, _y_pos, f"{_lbl}\n{_fr:.1f}% flagged",
                 fontsize=8, va="top", ha="left", color="#333333",
             )
+            _placed_y_epic.append(_y_pos)
 
         ax_epic.set_xlabel("Epic PMFRS score at admission", fontsize=9)
         ax_epic.set_ylabel("Encounters", fontsize=9)
@@ -522,25 +528,33 @@ def _(
             _handles,
             _labels,
             loc="lower center",
-            bbox_to_anchor=(0.5, -0.02),
+            bbox_to_anchor=(0.5, -0.08),
             ncol=2,
             fontsize=8,
             frameon=False,
         )
-        fig_dist.subplots_adjust(wspace=0.35)
+        fig_dist.subplots_adjust(wspace=0.32, bottom=0.26)
 
         fig_dist.text(
-            0.5, -0.08,
+            0.5,
+            -0.15,
             "eFigure 5. Score distributions at admission with standard threshold annotations",
-            ha="center", va="top", fontsize=10, fontweight="bold",
+            ha="center",
+            va="top",
+            fontsize=10,
+            fontweight="bold",
         )
 
-    save_figure(fig_dist, "efigure5_score_distributions")
+    save_figure(
+        fig_dist,
+        "efigure5_score_distributions",
+        bbox_inches=None,
+        pad_inches=0.15,
+    )
     fig_dist
-    return (fig_dist,)
+    return
 
 
-# ── Flag rate summary table ──────────────────────────────────────────
 @app.cell
 def _(mo, pl, threshold_summary):
     _standard_cutoffs = [
@@ -567,7 +581,7 @@ def _(flag_rate_df, mo):
 def _(Path, flag_rate_df, mo):
     _out_dir = Path("outputs/tables")
     _out_dir.mkdir(parents=True, exist_ok=True)
-    _csv_path = _out_dir / "flag_rate_summary.csv"
+    _csv_path = _out_dir / "etable6_flag_rate_summary.csv"
     flag_rate_df.write_csv(_csv_path)
     mo.md(f"**Saved**: `{_csv_path}`")
     return

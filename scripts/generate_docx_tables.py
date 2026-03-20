@@ -3,7 +3,7 @@
 
 Outputs:
     outputs/docx/manuscript_tables.docx  — Tables 1-3
-    outputs/docx/supplement_tables.docx  — eTables 1-9
+    outputs/docx/supplement_tables.docx  — eTables 1-10
 
 Usage: uv run scripts/generate_docx_tables.py
 """
@@ -344,7 +344,7 @@ SUPPLEMENT_TABLES = [
         ],
     ),
     TableDef(
-        csv_file="calibration_summary.csv",
+        csv_file="etable5_calibration_summary.csv",
         label="eTable 5",
         title="Calibration Summary: Epic PMFRS and Morse Fall Scale",
         footnotes=[
@@ -356,7 +356,7 @@ SUPPLEMENT_TABLES = [
         ],
     ),
     TableDef(
-        csv_file="threshold_summary.csv",
+        csv_file="etable6_threshold_methods.csv",
         label="eTable 6",
         title="Threshold Analysis: Optimal Cutpoints by Method",
         landscape=True,
@@ -372,7 +372,7 @@ SUPPLEMENT_TABLES = [
         ],
     ),
     TableDef(
-        csv_file="figure3_dca_net_benefit.csv",
+        csv_file="etable7_dca_net_benefit.csv",
         label="eTable 7",
         title="Decision Curve Analysis: Net Benefit at Selected Threshold Probabilities",
         footnotes=[
@@ -412,6 +412,27 @@ SUPPLEMENT_TABLES = [
             "consistent with the present study.",
             "PMID = PubMed identifier. Epic model brief data from Epic Systems "
             "Cognitive Computing Model Brief: Inpatient Risk of Falls (August 2025).",
+        ],
+    ),
+    TableDef(
+        csv_file="etable10_timing_classification.csv",
+        label="eTable 10",
+        title="Classification Metrics Across Score Timing Strategies",
+        landscape=True,
+        footnotes=[
+            "Abbreviations: PPV, positive predictive value; NPV, negative predictive value; "
+            "NNE, number needed to evaluate; TP, true positive; FP, false positive; "
+            "FN, false negative; TN, true negative; PMFRS, Predictive Model Fall Risk Score; "
+            "MFS, Morse Fall Scale.",
+            "Thresholds applied to raw scores (no recalibration). "
+            "Data-driven thresholds: Youden index, closest-to-(0,1), fixed sensitivity (60%, 80%). "
+            "Standard cutoffs: MFS \u226525 (moderate), \u226545 (high risk); "
+            "Epic 3-tier (35/70), 2-tier (50).",
+            "Maximum encounter scores include post-fall assessments (high look-ahead bias). "
+            "Mean encounter scores include post-fall assessments (moderate-high look-ahead bias). "
+            "These represent upper-bound estimates, not clinically actionable thresholds.",
+            "Before-fall scores use last pre-discharge score as the non-faller comparator "
+            "(moderate look-ahead bias). Included only if \u2265100 non-fallers have scores.",
         ],
     ),
 ]

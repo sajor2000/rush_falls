@@ -9,32 +9,32 @@ Inputs:  data/processed/analytic.parquet
 Outputs: outputs/figures/figure3_dca.pdf
          outputs/figures/figure3_dca.png
 """
+
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _():
     import marimo as mo
+
     return (mo,)
 
 
 @app.cell
 def _(mo):
-    mo.md(
-r"""
-# Figure 3. Decision Curve Analysis
+    mo.md(r"""
+    # Figure 3. Decision Curve Analysis
 
-Net benefit curves for Epic PMFRS, Morse Fall Scale, treat-all, and treat-none
-across threshold probabilities 0–10%. DCA quantifies clinical utility by weighing
-the benefit of true positives against the harm of false positives at each decision
-threshold.
+    Net benefit curves for Epic PMFRS, Morse Fall Scale, treat-all, and treat-none
+    across threshold probabilities 0–10%. DCA quantifies clinical utility by weighing
+    the benefit of true positives against the harm of false positives at each decision
+    threshold.
 
-**Reference**: Vickers AJ et al. *Diagn Progn Res* 2019;3:18.
-"""
-    )
+    **Reference**: Vickers AJ et al. *Diagn Progn Res* 2019;3:18.
+    """)
     return
 
 
@@ -45,6 +45,7 @@ def _():
     import matplotlib.pyplot as plt
     import numpy as np
     import polars as pl
+
     return Path, np, pl, plt
 
 
@@ -62,6 +63,7 @@ def _():
     )
     from utils.metrics import extract_dca_threshold_range, logistic_recalibration
     from utils.plotting import COLORS, JAMA_STYLE, save_figure
+
     return (
         COLORS,
         DCA_THRESHOLD_MAX,
@@ -79,7 +81,6 @@ def _():
     )
 
 
-# ── Load analytic dataset ────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     _path = Path("data/processed/analytic.parquet")
@@ -103,9 +104,16 @@ def _(df, mo):
     return
 
 
-# ── Logistic recalibration: score → probability ──────────────────────
 @app.cell
-def _(EPIC_2TIER_HIGH, EPIC_3TIER_HIGH, EPIC_3TIER_MEDIUM, MFS_HIGH, MFS_MODERATE, df, logistic_recalibration):
+def _(
+    EPIC_2TIER_HIGH,
+    EPIC_3TIER_HIGH,
+    EPIC_3TIER_MEDIUM,
+    MFS_HIGH,
+    MFS_MODERATE,
+    df,
+    logistic_recalibration,
+):
     _y = df["fall_flag"].to_numpy()
     _epic_score = df["epic_score_admission"].to_numpy()
     _morse_score = df["morse_score_admission"].to_numpy()
@@ -121,10 +129,17 @@ def _(EPIC_2TIER_HIGH, EPIC_3TIER_HIGH, EPIC_3TIER_MEDIUM, MFS_HIGH, MFS_MODERAT
     epic_prob_at_70 = float(_epic_lr.predict_proba([[float(EPIC_3TIER_HIGH)]])[0, 1])
 
     y_true = _y
-    return epic_prob, epic_prob_at_35, epic_prob_at_50, epic_prob_at_70, morse_prob, morse_prob_at_25, morse_prob_at_45, y_true
+    return (
+        epic_prob,
+        epic_prob_at_35,
+        epic_prob_at_50,
+        epic_prob_at_70,
+        morse_prob,
+        morse_prob_at_25,
+        morse_prob_at_45,
+    )
 
 
-# ── Attach probabilities to Polars df, then convert for dcurves ─────
 @app.cell
 def _(df, epic_prob, mo, morse_prob, np, pl):
     df_with_probs = df.with_columns(
@@ -148,9 +163,14 @@ def _(df, epic_prob, mo, morse_prob, np, pl):
     return (df_with_probs,)
 
 
-# ── DCA via dcurves ──────────────────────────────────────────────────
 @app.cell
-def _(DCA_THRESHOLD_MAX, DCA_THRESHOLD_MIN, DCA_THRESHOLD_STEP, df_with_probs, np):
+def _(
+    DCA_THRESHOLD_MAX,
+    DCA_THRESHOLD_MIN,
+    DCA_THRESHOLD_STEP,
+    df_with_probs,
+    np,
+):
     from dcurves import dca
 
     # Convert to pandas only at dcurves boundary
@@ -180,7 +200,6 @@ def _(df_dca, mo):
     return
 
 
-# ── Extract net benefit by model ─────────────────────────────────────
 @app.cell
 def _(df_dca):
     """
@@ -198,10 +217,18 @@ def _(df_dca):
     thresh_morse, nb_morse = _get_nb("morse_prob")
     thresh_all, nb_all = _get_nb("all")
     thresh_none, nb_none = _get_nb("none")
-    return nb_all, nb_epic, nb_morse, nb_none, thresh_all, thresh_epic, thresh_morse, thresh_none
+    return (
+        nb_all,
+        nb_epic,
+        nb_morse,
+        nb_none,
+        thresh_all,
+        thresh_epic,
+        thresh_morse,
+        thresh_none,
+    )
 
 
-# ── Figure 3: DCA plot ────────────────────────────────────────────────
 @app.cell
 def _(
     COLORS,
@@ -327,17 +354,16 @@ def _(
         fig3.subplots_adjust(bottom=0.22)
 
         fig3.text(
-            0.5, -0.02,
+            0.5, -0.06,
             "Figure 3. Decision curve analysis: Epic PMFRS vs Morse Fall Scale",
             ha="center", va="top", fontsize=10, fontweight="bold",
         )
 
-    save_figure(fig3, "figure3_dca")
+    save_figure(fig3, "figure3_dca", bbox_inches=None, pad_inches=0.15)
     fig3
-    return (fig3,)
+    return
 
 
-# ── DCA-derived threshold ranges ──────────────────────────────────────
 @app.cell
 def _(Path, df_dca, extract_dca_threshold_range, mo):
     import json
@@ -376,7 +402,6 @@ def _(Path, df_dca, extract_dca_threshold_range, mo):
     return
 
 
-# ── Net benefit table at key thresholds ─────────────────────────────
 @app.cell
 def _(df_dca, mo, pl):
     _key_thresh = [0.01, 0.02, 0.03, 0.05]
@@ -422,10 +447,10 @@ def _(dca_tbl, mo):
 
 
 @app.cell
-def _(Path, mo, dca_tbl):
+def _(Path, dca_tbl, mo):
     _out_dir = Path("outputs/tables")
     _out_dir.mkdir(parents=True, exist_ok=True)
-    _csv_path = _out_dir / "figure3_dca_net_benefit.csv"
+    _csv_path = _out_dir / "etable7_dca_net_benefit.csv"
     dca_tbl.write_csv(_csv_path)
     mo.md(f"**Saved**: `{_csv_path}` ({dca_tbl.height} rows)")
     return

@@ -1,55 +1,59 @@
 import marimo
 
-__generated_with = "0.13.0"
+__generated_with = "0.21.1"
 app = marimo.App(width="full")
 
 
 @app.cell
 def _():
-    import marimo as mo
-    import polars as pl
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import matplotlib
     from pathlib import Path
+
+    import marimo as mo
+    import matplotlib
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import polars as pl
 
     return Path, matplotlib, mo, np, pl, plt
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        """
-        # 05 — Calibration Analysis
+    mo.md("""
+    # 05 — Calibration Analysis
 
-        **Purpose**: Assess calibration of Epic PMFRS and Morse Fall Scale after logistic
-        recalibration to predicted probabilities. Generates eFigures 1 and 2.
+    **Purpose**: Assess calibration of Epic PMFRS and Morse Fall Scale after logistic
+    recalibration to predicted probabilities. Generates eFigures 1 and 2.
 
-        **Method**:
-        1. Logistic recalibration: fit `LogisticRegression(score → y_true)` for each model
-        2. Extract `predict_proba` as calibrated probabilities
-        3. Compute CITL, calibration slope, and ICI
-        4. LOWESS-smoothed calibration curve (frac=0.3) with reference diagonal
-        5. Spike/rug plot for predicted probability distribution
+    **Method**:
+    1. Logistic recalibration: fit `LogisticRegression(score → y_true)` for each model
+    2. Extract `predict_proba` as calibrated probabilities
+    3. Compute CITL, calibration slope, and ICI
+    4. LOWESS-smoothed calibration curve (frac=0.3) with reference diagonal
+    5. Spike/rug plot for predicted probability distribution
 
-        **Outputs**:
-        - eFigure 1: Calibration plot — Epic PMFRS
-        - eFigure 2: Calibration plot — Morse Fall Scale
-        """
-    )
+    **Outputs**:
+    - eFigure 1: Calibration plot — Epic PMFRS
+    - eFigure 2: Calibration plot — Morse Fall Scale
+    """)
     return
 
 
-# ── Imports: utilities ─────────────────────────────────────────────────────
 @app.cell
 def _():
     from utils.metrics import calibration_metrics, logistic_recalibration
-    from utils.plotting import COLORS, JAMA_STYLE, FIG_SINGLE_COL, save_figure
+    from utils.plotting import COLORS, FIG_SINGLE_COL, JAMA_STYLE, save_figure
 
-    return COLORS, FIG_SINGLE_COL, JAMA_STYLE, calibration_metrics, logistic_recalibration, save_figure
+    return (
+        COLORS,
+        FIG_SINGLE_COL,
+        JAMA_STYLE,
+        calibration_metrics,
+        logistic_recalibration,
+        save_figure,
+    )
 
 
-# ── 1. Load analytic dataset ───────────────────────────────────────────────
 @app.cell
 def _(Path, pl):
     df = pl.read_parquet(Path("data/processed/analytic.parquet"))
@@ -71,7 +75,6 @@ def _(df, mo, pl):
     return
 
 
-# ── 2. Extract arrays at sklearn boundary ─────────────────────────────────
 @app.cell
 def _(df):
     y_true = df["fall_flag"].to_numpy()
@@ -80,7 +83,6 @@ def _(df):
     return epic_scores, morse_scores, y_true
 
 
-# ── 3. Logistic recalibration: score → probability ────────────────────────
 @app.cell
 def _(epic_scores, logistic_recalibration, morse_scores, y_true):
     epic_prob, _ = logistic_recalibration(epic_scores, y_true)
@@ -88,7 +90,6 @@ def _(epic_scores, logistic_recalibration, morse_scores, y_true):
     return epic_prob, morse_prob
 
 
-# ── 4. Calibration metrics ────────────────────────────────────────────────
 @app.cell
 def _(calibration_metrics, epic_prob, morse_prob, y_true):
     epic_cal = calibration_metrics(y_true, epic_prob, lowess_frac=0.3)
@@ -117,7 +118,6 @@ def _(epic_cal, mo, morse_cal):
     return
 
 
-# ── 5. Calibration plot helper ────────────────────────────────────────────
 @app.cell
 def _(matplotlib, np, plt):
     import statsmodels.api as sm
@@ -144,27 +144,31 @@ def _(matplotlib, np, plt):
             return_sorted=True,
         )
 
-        # Data-driven axis limits — zoom to the probability range
-        _p_max = float(np.max(np.concatenate([y_prob_arr, _lowess_result[:, 1]])))
-        _axis_max = np.ceil(_p_max * 20) / 20  # round up to nearest 0.05
-        _axis_max = max(_axis_max, 0.05)        # minimum so axes aren't degenerate
-        _axis_max = min(_axis_max, 1.0)          # cap at 1.0
+        # Data-driven axis limits — zoom tightly to the probability range
+        _p_min = float(np.min(y_prob_arr))
+        _p_max = float(
+            np.max(np.concatenate([y_prob_arr, _lowess_result[:, 1]]))
+        )
+        _axis_min = 0.0
+        _axis_max = np.ceil(_p_max * 100) / 100 + 0.005  # round up + padding
+        _axis_max = max(_axis_max, _p_max * 1.15)  # at least 15% headroom
+        _axis_max = min(_axis_max, 1.0)
 
         # Scale rug positions proportionally to axis range
-        _rug_y_event = -0.03 * _axis_max
-        _rug_y_nonevent = -0.06 * _axis_max
-        _rug_height = max(0.018 * _axis_max, 0.003)
+        _rug_y_event = -0.06 * _axis_max
+        _rug_y_nonevent = -0.13 * _axis_max
+        _rug_height = max(0.025 * _axis_max, 0.003)
 
         with matplotlib.rc_context(jama_style):
             _fig, _ax = plt.subplots(figsize=fig_size)
 
-            # Reference diagonal covers 0 to _axis_max (not 0 to 1)
-            _ref_x = np.linspace(0, _axis_max, 100)
+            # Reference diagonal (perfect calibration)
+            _ref_x = np.linspace(_axis_min, _axis_max, 100)
             _ax.plot(
                 _ref_x,
                 _ref_x,
-                color="#888888",
-                linewidth=0.8,
+                color="#BBBBBB",
+                linewidth=0.6,
                 linestyle="--",
                 zorder=1,
                 label="Perfect calibration",
@@ -175,13 +179,37 @@ def _(matplotlib, np, plt):
                 _lowess_result[:, 0],
                 _lowess_result[:, 1],
                 color=line_color,
-                linewidth=1.2,
+                linewidth=1.8,
                 zorder=3,
                 label=model_label,
             )
 
-            # Spike / rug plot at bottom — show distribution of predicted probabilities
-            # Events (y=1) above the axis, non-events below
+            # Grouped calibration points — decile bins for visual clarity
+            _n_bins = min(10, len(np.unique(y_prob_arr)))
+            _bin_edges = np.percentile(y_prob_arr, np.linspace(0, 100, _n_bins + 1))
+            _bin_edges = np.unique(_bin_edges)
+            _bin_x, _bin_y = [], []
+            for _i in range(len(_bin_edges) - 1):
+                if _i < len(_bin_edges) - 2:
+                    _mask = (y_prob_arr >= _bin_edges[_i]) & (
+                        y_prob_arr < _bin_edges[_i + 1]
+                    )
+                else:
+                    _mask = y_prob_arr >= _bin_edges[_i]
+                if _mask.sum() > 0:
+                    _bin_x.append(float(np.mean(y_prob_arr[_mask])))
+                    _bin_y.append(float(np.mean(y_true_arr[_mask])))
+            _ax.scatter(
+                _bin_x,
+                _bin_y,
+                color=line_color,
+                s=18,
+                zorder=4,
+                edgecolors="white",
+                linewidth=0.5,
+            )
+
+            # Spike / rug plot at bottom — distribution of predicted probs
             _events_mask = y_true_arr == 1
             _nonevents_mask = ~_events_mask
 
@@ -211,14 +239,14 @@ def _(matplotlib, np, plt):
                 zorder=2,
             )
 
-            # Annotation box: calibration metrics (top-right, above data)
+            # Annotation box: calibration metrics
             _anno = (
                 f"CITL = {cal_metrics['citl']:.2f}\n"
                 f"Slope = {cal_metrics['calibration_slope']:.2f}\n"
                 f"ICI = {cal_metrics['ici']:.4f}"
             )
             _ax.text(
-                0.97,
+                0.95,
                 0.95,
                 _anno,
                 transform=_ax.transAxes,
@@ -234,10 +262,10 @@ def _(matplotlib, np, plt):
                 ),
             )
 
-            # Legend: below the chart to avoid overlapping LOWESS curve
+            # Legend: below the chart
             _ax.legend(
                 loc="upper center",
-                bbox_to_anchor=(0.5, -0.15),
+                bbox_to_anchor=(0.5, -0.18),
                 ncol=2,
                 fontsize=8,
                 frameon=False,
@@ -246,13 +274,14 @@ def _(matplotlib, np, plt):
 
             _ax.set_xlabel("Predicted probability", fontsize=9)
             _ax.set_ylabel("Observed event rate", fontsize=9)
-            _ax.set_xlim(-0.002, _axis_max * 1.05)
-            _ax.set_ylim(_rug_y_nonevent - _rug_height, _axis_max * 1.05)
+            _ax.set_xlim(-0.001, _axis_max)
+            _ax.set_ylim(_rug_y_nonevent - _rug_height, _axis_max)
             _ax.tick_params(labelsize=8)
 
-            plt.subplots_adjust(bottom=0.18)
+            # Margins for rug labels and legend/caption below axes
+            plt.subplots_adjust(bottom=0.25, right=0.85)
 
-            # Rug labels (8pt minimum)
+            # Rug labels
             _ax.text(
                 1.01,
                 _rug_y_event,
@@ -276,18 +305,17 @@ def _(matplotlib, np, plt):
 
         return _fig
 
-    return make_calibration_plot, sm
+    return (make_calibration_plot,)
 
 
-# ── 6. eFigure 1: Epic PMFRS calibration ─────────────────────────────────
 @app.cell
 def _(
     COLORS,
     FIG_SINGLE_COL,
     JAMA_STYLE,
-    make_calibration_plot,
     epic_cal,
     epic_prob,
+    make_calibration_plot,
     save_figure,
     y_true,
 ):
@@ -301,24 +329,32 @@ def _(
         fig_size=FIG_SINGLE_COL,
     )
     _efig1.text(
-        0.5, -0.22,
+        0.5,
+        -0.22,
         "eFigure 1. Calibration plot: Epic PMFRS",
-        ha="center", va="top", fontsize=10, fontweight="bold",
+        ha="center",
+        va="top",
+        fontsize=10,
+        fontweight="bold",
     )
-    save_figure(_efig1, "efigure1_calibration_epic")
+    save_figure(
+        _efig1,
+        "efigure1_calibration_epic",
+        bbox_inches=None,
+        pad_inches=0.15,
+    )
     efigure1 = _efig1
-    return (efigure1,)
+    return
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        "**eFigure 1 saved** to `outputs/figures/efigure1_calibration_epic.pdf` and `.png`."
-    )
+    mo.md("""
+    **eFigure 1 saved** to `outputs/figures/efigure1_calibration_epic.pdf` and `.png`.
+    """)
     return
 
 
-# ── 7. eFigure 2: Morse Fall Scale calibration ────────────────────────────
 @app.cell
 def _(
     COLORS,
@@ -340,24 +376,32 @@ def _(
         fig_size=FIG_SINGLE_COL,
     )
     _efig2.text(
-        0.5, -0.22,
+        0.5,
+        -0.22,
         "eFigure 2. Calibration plot: Morse Fall Scale",
-        ha="center", va="top", fontsize=10, fontweight="bold",
+        ha="center",
+        va="top",
+        fontsize=10,
+        fontweight="bold",
     )
-    save_figure(_efig2, "efigure2_calibration_morse")
+    save_figure(
+        _efig2,
+        "efigure2_calibration_morse",
+        bbox_inches=None,
+        pad_inches=0.15,
+    )
     efigure2 = _efig2
-    return (efigure2,)
+    return
 
 
 @app.cell
 def _(mo):
-    mo.md(
-        "**eFigure 2 saved** to `outputs/figures/efigure2_calibration_morse.pdf` and `.png`."
-    )
+    mo.md("""
+    **eFigure 2 saved** to `outputs/figures/efigure2_calibration_morse.pdf` and `.png`.
+    """)
     return
 
 
-# ── 8. Calibration summary table ─────────────────────────────────────────
 @app.cell
 def _(epic_cal, mo, morse_cal, pl):
     _cal_rows = [
@@ -383,10 +427,10 @@ def _(epic_cal, mo, morse_cal, pl):
 
 
 @app.cell
-def _(Path, mo, cal_summary_df):
+def _(Path, cal_summary_df, mo):
     _out_dir = Path("outputs/tables")
     _out_dir.mkdir(parents=True, exist_ok=True)
-    _csv_path = _out_dir / "calibration_summary.csv"
+    _csv_path = _out_dir / "etable5_calibration_summary.csv"
     cal_summary_df.write_csv(_csv_path)
     mo.md(f"**Saved**: `{_csv_path}` ({cal_summary_df.height} rows)")
     return

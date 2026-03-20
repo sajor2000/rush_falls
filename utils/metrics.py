@@ -207,6 +207,65 @@ def classification_metrics_at_threshold(
 
 
 # ═══════════════════════════════════════════════════════════════════════
+# Classification metrics across score timings
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def timing_classification_metrics(
+    y_true: NDArray,
+    epic_scores: NDArray,
+    morse_scores: NDArray,
+    timing_label: str,
+    bias_note: str = "",
+) -> list[dict]:
+    """Compute classification metrics at data-driven and standard thresholds for one timing.
+
+    For each model (Epic, Morse), computes 4 data-driven thresholds (Youden, closest-to-(0,1),
+    fixed sensitivity 60%, fixed sensitivity 80%) and standard cutoffs (Epic: 35, 50, 70;
+    Morse: 25, 45). Returns a list of dicts ready for DataFrame construction.
+    """
+    rows: list[dict] = []
+
+    for model_name, scores, standard_cutoffs in [
+        ("Epic PMFRS", epic_scores, [35, 50, 70]),
+        ("Morse Fall Scale", morse_scores, [25, 45]),
+    ]:
+        # Data-driven thresholds
+        thresholds: list[tuple[str, float]] = [
+            ("Youden index", youden_threshold(y_true, scores)),
+            ("Closest to (0,1)", closest_topleft_threshold(y_true, scores)),
+            ("Fixed sensitivity 60%", fixed_sensitivity_threshold(y_true, scores, 0.6)),
+            ("Fixed sensitivity 80%", fixed_sensitivity_threshold(y_true, scores, 0.8)),
+        ]
+
+        # Standard cutoffs
+        for cutoff in standard_cutoffs:
+            thresholds.append((f"Standard ≥{cutoff}", float(cutoff)))
+
+        for method, thresh in thresholds:
+            m = classification_metrics_at_threshold(y_true, scores, thresh)
+            rows.append({
+                "Score timing": timing_label,
+                "Bias note": bias_note,
+                "Model": model_name,
+                "Threshold method": method,
+                "Threshold": round(thresh, 2),
+                "Sensitivity, %": round(m["sensitivity"] * 100, 1),
+                "Specificity, %": round(m["specificity"] * 100, 1),
+                "Flag rate, %": round(m["flag_rate"], 1),
+                "PPV, %": round(m["ppv"] * 100, 2),
+                "NPV, %": round(m["npv"] * 100, 2),
+                "NNE": round(m["nne"], 1) if m["nne"] != float("inf") else "∞",
+                "TP": m["tp"],
+                "FP": m["fp"],
+                "FN": m["fn"],
+                "TN": m["tn"],
+            })
+
+    return rows
+
+
+# ═══════════════════════════════════════════════════════════════════════
 # Threshold selection methods
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -333,7 +392,7 @@ def extract_dca_threshold_range(
     """
     import pandas as pd
 
-    def _extract_nb(model: str, name: str) -> "pd.Series":
+    def _extract_nb(model: str, name: str) -> pd.Series:
         s = df_dca[df_dca["model"] == model].copy()
         s["threshold"] = s["threshold"].round(8)
         return s.set_index("threshold")["net_benefit"].rename(name)
@@ -496,18 +555,21 @@ def calibration_metrics(
     cal_intercept = float(result.params[0])
     cal_slope = float(result.params[1])
 
-    # ICI with LOWESS
+    # ICI with LOWESS — deduplicate x-values (Morse discrete scores produce
+    # many ties that break interp1d)
     lowess_result = sm.nonparametric.lowess(
         y_true, y_pred_clipped, frac=lowess_frac, it=3, return_sorted=True
     )
+    lx, ly = lowess_result[:, 0], lowess_result[:, 1]
+    _, unique_idx = np.unique(lx, return_index=True)
     lowess_func = interp1d(
-        lowess_result[:, 0],
-        lowess_result[:, 1],
+        lx[unique_idx],
+        ly[unique_idx],
         bounds_error=False,
         fill_value="extrapolate",
     )
     smoothed = lowess_func(y_pred_clipped)
-    ici = float(np.mean(np.abs(y_pred_clipped - smoothed)))
+    ici = float(np.nanmean(np.abs(y_pred_clipped - smoothed)))
 
     return {
         "citl": citl,
